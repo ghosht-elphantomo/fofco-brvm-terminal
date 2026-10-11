@@ -451,6 +451,7 @@ function computeAll() {
     o.f = f; const lt = (f && f.latest) || {}; const ser = (f && f.series) || {};
     o.bnpa = lt.bnpa; o.per = lt.bnpa > 0 ? price / lt.bnpa : null; o.loss = ok(lt.bnpa) && lt.bnpa <= 0;
     o.cap = T.nbt ? T.nbt * price : null;
+    o.fcf = f && f.fcf_last ? f.fcf_last.fcf : null; o.fcfEx = f && f.fcf_last ? f.fcf_last.exercice : null; o.fcfY = ok(o.fcf) && o.cap ? o.fcf*1e6/o.cap*100 : null;
     const cp = lt.capitaux_propres; o.pb = cp > 0 && T.nbt ? price / (cp*1e6/T.nbt) : null;
     o.roe = ok(lt.roe) ? lt.roe : (cp > 0 && ok(lt.resultat_net) ? lt.resultat_net/cp*100 : null);
     o.roa = lt.roa; o.mnet = lt.marge_nette; o.exo = f && f.exercice;
@@ -762,6 +763,7 @@ const COLS = [
   { k: 'yld', l: 'Rend. net', cell: x => x.yld == null ? '<span class="muted">—</span>' : `${F.pu(x.yld)}${x.div.prov ? '<sup title="Dividende provisoire SikaFinance, net estimé">*</sup>' : ''}`, n: true },
   { k: 'serie', l: 'Années div.', s: x => x.div.serie, cell: x => x.div.serie ? `${x.div.serie} ans` : '<span class="muted">sans historique</span>', n: true },
   { k: 'per', l: 'PER', cell: x => x.loss ? '<span class="down">perte</span>' : ok(x.per) ? `${F.n(x.per, 1)} <span class="${x.sous ? 'up' : 'muted'}" title="Médiane du secteur : ${F.n(x.perSec, 1)}">${x.sous ? '▼' : '▲'} ${F.n(x.perSec, 1)}</span>` : '—', n: true },
+  { k: 'fcfY', l: 'Rend. FCF', cell: x => x.bank ? '<span class="muted">banque</span>' : ok(x.fcfY) ? `<span class="${cls(x.fcfY)}">${F.pu(x.fcfY)}</span>` : '<span class="muted">—</span>', n: true },
   { k: 'pos', l: 'Position 1 an', cell: x => posBar(x.pos) },
   { k: 'dist50', l: 'Dist. MM50', cell: x => `<span class="${cls(x.dist50)}">${F.p(x.dist50)}</span>`, n: true },
   { k: 'volX', l: 'Vol. ×', cell: x => ok(x.volX) ? `<span class="${x.volX >= 2 ? 'up' : ''}">×${F.n(x.volX, 1)}</span>` : '—', n: true },
@@ -868,7 +870,7 @@ async function vFiche() {
     <div class="grid g2"><div class="panel"><h3>Lecture des indicateurs</h3><div class="tw" style="border:0" id="indTbl"></div></div>
       <div class="panel"><h3>Profil de volume · 1 an</h3><div id="vp" class="vp"></div><div class="note" id="vpNote" style="margin-top:8px"></div><h3 style="margin-top:14px">Figures</h3><div id="figs" class="note"></div></div></div>
     <div class="grid g2"><div class="panel"><h3>Performances</h3><div id="perfT"></div></div><div class="panel"><h3>Valorisation</h3>${valoBlock(x)}</div></div>
-    <div class="panel"><div class="ph"><h3>Comptes annuels</h3><span class="note">Millions FCFA · source SikaFinance${x.f && x.f.date ? ' · ' + F.iso(x.f.date) : ''}</span></div><div class="tw" style="border:0">${fundTable(x)}</div><div id="healthCrit" class="row" style="gap:6px;margin-top:10px">${healthChips(x)}</div></div>
+    <div class="panel"><div class="ph"><h3>Comptes annuels</h3><span class="note">Millions FCFA · source SikaFinance${x.f && x.f.date ? ' · ' + F.iso(x.f.date) : ''}${x.f && x.f.series && x.f.series.fcf ? ' · flux de trésorerie : états financiers SYSCOHADA publiés sur brvm.org' : ''}</span></div><div class="tw" style="border:0">${fundTable(x)}</div><div id="healthCrit" class="row" style="gap:6px;margin-top:10px">${healthChips(x)}</div></div>
     <div class="grid g2"><div class="panel"><h3>Dividendes</h3><div class="tw" style="border:0">${divTable(x)}</div></div>
       <div class="panel"><h3>Saisonnalité depuis 2012</h3><div class="tw" style="border:0">${seasonTable(x.season)}</div><p class="note">Haussier si le mois monte au moins 7 années sur 10, baissier si au plus 3. « Hasard ? Non » seulement si l’intervalle de Wilson à 95 % exclut 50 %. Au moins 4 années par mois.</p></div></div>
     <div class="panel"><h3>Avis et publications</h3><div id="tkEv" class="note">Chargement…</div></div>
@@ -889,11 +891,13 @@ function valoBlock(x) { const ey = ok(x.per) && x.per > 0 ? 100/x.per : null;
   <dt>Médiane du secteur</dt><dd class="num">${F.n(x.perSec, 1)} ${x.perRel != null ? chip(x.sous ? 'sous le secteur' : 'au-dessus du secteur', x.sous ? 'g' : '') : ''}</dd>
   <dt>Rendement bénéficiaire</dt><dd class="num">${F.pu(ey)}</dd><dt>Cours / valeur comptable</dt><dd class="num">${F.n(x.pb, 2)}</dd>
   <dt>ROE</dt><dd class="num">${F.pu(x.roe)}</dd><dt>Rendement net</dt><dd class="num">${F.pu(x.yld)}${x.div.prov ? ' <span class="muted">(provisoire)</span>' : ''}</dd>
+  <dt>Rendement free cash flow${x.fcfEx ? ' (' + x.fcfEx + ')' : ''}</dt><dd class="num ${cls(x.fcfY)}">${x.bank ? '<span class="muted">non pertinent (banque)</span>' : F.pu(x.fcfY)}</dd>
   <dt>Couverture du dividende</dt><dd class="num">${x.cover != null ? '×' + F.n(x.cover, 2) : '—'}</dd><dt>Flottant</dt><dd class="num">${F.pu(S.byT[x.t].flot)}</dd></dl>`; }
 function fundTable(x) { if (!x.f || !x.f.series) return '<div class="empty">Comptes non publiés.</div>'; const s = x.f.series;
   const years = [...new Set(Object.values(s).flatMap(o => Object.keys(o || {})))].sort().slice(-6);
   const rowsDef = x.bank ? [['ca', 'Produit net bancaire', 0], ['resultat_net', 'Résultat net', 0], ['bnpa', 'BNPA (FCFA)', 0], ['dividende', 'Dividende brut (FCFA)', 0], ['per', 'PER', 1], ['roe', 'ROE %', 1], ['roa', 'ROA %', 2], ['coefficient_d_exploitation', 'Coef. d’exploitation %', 1], ['ratio_de_solvabilite', 'Solvabilité %', 1], ['cout_du_risque', 'Coût du risque', 0], ['credits_clientele', 'Crédits clientèle', 0], ['depots_clientele', 'Dépôts clientèle', 0], ['capitaux_propres', 'Capitaux propres', 0]]
-    : [['ca', 'Chiffre d’affaires', 0], ['croissance_ca', 'Croissance CA %', 1], ['ebitda', 'EBITDA', 0], ['ebit', 'Résultat d’exploitation', 0], ['resultat_net', 'Résultat net', 0], ['croissance_resultat_net', 'Croissance RN %', 1], ['bnpa', 'BNPA (FCFA)', 0], ['dividende', 'Dividende brut (FCFA)', 0], ['per', 'PER', 1], ['marge_nette', 'Marge nette %', 1], ['marge_exploitation', 'Marge d’exploitation %', 1], ['roe', 'ROE %', 1], ['roa', 'ROA %', 1], ['capitaux_propres', 'Capitaux propres', 0], ['dette_nette', 'Dette nette', 0], ['tresorerie', 'Trésorerie', 0]];
+    : [['ca', 'Chiffre d’affaires', 0], ['croissance_ca', 'Croissance CA %', 1], ['ebitda', 'EBITDA', 0], ['ebit', 'Résultat d’exploitation', 0], ['resultat_net', 'Résultat net', 0], ['croissance_resultat_net', 'Croissance RN %', 1], ['bnpa', 'BNPA (FCFA)', 0], ['dividende', 'Dividende brut (FCFA)', 0], ['per', 'PER', 1], ['marge_nette', 'Marge nette %', 1], ['marge_exploitation', 'Marge d’exploitation %', 1], ['roe', 'ROE %', 1], ['roa', 'ROA %', 1], ['capitaux_propres', 'Capitaux propres', 0], ['dette_nette', 'Dette nette', 0], ['tresorerie', 'Trésorerie', 0],
+      ['cfo', 'Flux de trésorerie opérationnels', 0], ['capex', 'Investissements (capex)', 0], ['fcf', 'Free cash flow', 0], ['marge_fcf', 'Marge FCF %', 1], ['conversion_fcf', 'FCF / résultat net %', 0], ['fcf_par_action', 'FCF par action (FCFA)', 0]];
   const trend = (k, isPct) => { const v = years.map(y => (s[k] || {})[y]).filter(ok); if (v.length < 3) return ''; const d = last(v) - v[0];
     if (isPct) return Math.abs(d) <= 1 ? '<span class="muted">stable</span>' : d > 0 ? '<span class="up">en progression</span>' : '<span class="down">en recul</span>';
     const g = v[0] > 0 && last(v) > 0 ? (Math.pow(last(v)/v[0], 1/(v.length - 1)) - 1)*100 : null; return g == null ? '' : `<span class="${cls(g)}">${F.p(g)} /an</span>`; };
@@ -904,7 +908,7 @@ function healthChips(x) { const c = x.healthCrit || {}; const lab = { prof: 'Ren
 function divTable(x) { const D = x.div.all.slice().reverse(); if (!D.length) return '<div class="empty">Aucun dividende enregistré.</div>';
   return `<p class="note">${x.div.serie ? `${x.div.serie} années consécutives` : 'Série interrompue'}${x.div.growth != null ? ` · croissance ${F.p(x.div.growth)} /an` : ''}${x.div.nextDet ? ` · prochain détachement ${F.d(x.div.nextDet)}` : ''}</p>
   <table><thead><tr><th>Exercice</th><th class="n">Net</th><th class="n">Brut</th><th>Détachement</th><th>Paiement</th></tr></thead><tbody>
-  ${D.slice(0, 12).map(d => `<tr><td>${d.ex ?? '—'}</td><td class="n num">${F.n(d.net, 2)}</td><td class="n num">${F.n(d.brut, 0)}</td><td class="num">${F.iso(d.det)}</td><td class="num">${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${F.iso(d.pay)}</a>` : F.iso(d.pay)}</td></tr>`).join('')}</tbody></table>`; }
+  ${D.map(d => `<tr><td>${d.ex ?? '—'}</td><td class="n num">${F.n(d.net, 2)}</td><td class="n num">${F.n(d.brut, 0)}</td><td class="num">${F.iso(d.det)}</td><td class="num">${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${F.iso(d.pay)}</a>` : F.iso(d.pay)}</td></tr>`).join('')}</tbody></table>`; }
 function seasonTable(se) { return `<table><thead><tr><th>Mois</th><th class="n">Années</th><th class="n">En hausse</th><th class="n">Moyenne</th><th class="n">Médiane</th><th>Verdict</th><th>Hasard ?</th></tr></thead><tbody>
   ${se.map(s => `<tr><td>${MOIS[s.m]}</td><td class="n num">${s.n}</td><td class="n num">${s.n ? `${s.up}/${s.n}` : '—'}</td><td class="n num ${cls(s.mean)}">${F.p(s.mean)}</td><td class="n num">${F.p(s.med)}${s.mean != null && s.med != null && Math.sign(s.mean) !== Math.sign(s.med) ? '*' : ''}</td>
   <td>${chip(s.verdict, s.verdict === 'Haussier' ? 'g' : s.verdict === 'Baissier' ? 'r' : '')}</td><td>${s.hasard == null ? '—' : s.hasard ? 'Oui' : '<b>Non</b>'}</td></tr>`).join('')}</tbody></table>`; }
@@ -1190,8 +1194,8 @@ async function vIndices() {
 const RANKS = {
   perf: { n: 'Performance', cols: [['1', '1 séance'], ['5', '5 séances'], ['20', '20 séances'], ['60', '60 séances'], ['120', '120 séances'], ['252', '1 an'], ['a3', '3 ans /an'], ['a5', '5 ans /an']],
     get: (x, k) => k === 'a3' ? (x.perf['756'] != null ? (Math.pow(1 + x.perf['756']/100, 1/3) - 1)*100 : null) : k === 'a5' ? (x.perf['1260'] != null ? (Math.pow(1 + x.perf['1260']/100, 1/5) - 1)*100 : null) : x.perf[k], f: v => `<span class="${cls(v)}">${F.p(v)}</span>`, def: '252' },
-  valo: { n: 'Valorisation', cols: [['per', 'PER'], ['perSec', 'PER secteur'], ['ey', 'Rend. bénéficiaire'], ['pb', 'Cours / val. comptable'], ['roe', 'ROE'], ['cap', 'Capitalisation']],
-    get: (x, k) => k === 'ey' ? (x.per > 0 ? 100/x.per : null) : x[k], f: (v, k) => k === 'cap' ? F.big(v) : k === 'ey' || k === 'roe' ? F.pu(v) : F.n(v, k === 'pb' ? 2 : 1), def: 'ey' },
+  valo: { n: 'Valorisation', cols: [['per', 'PER'], ['perSec', 'PER secteur'], ['ey', 'Rend. bénéficiaire'], ['fcfY', 'Rend. FCF'], ['pb', 'Cours / val. comptable'], ['roe', 'ROE'], ['cap', 'Capitalisation']],
+    get: (x, k) => k === 'ey' ? (x.per > 0 ? 100/x.per : null) : x[k], f: (v, k) => k === 'cap' ? F.big(v) : k === 'ey' || k === 'roe' || k === 'fcfY' ? F.pu(v) : F.n(v, k === 'pb' ? 2 : 1), def: 'ey' },
   crois: { n: 'Croissance', cols: [['caG', 'CA dernier exercice'], ['caCagr', 'CA par an (4 ans)'], ['rnG', 'Résultat dernier exercice'], ['rnCagr', 'Résultat par an (4 ans)'], ['exo', 'Exercice']],
     get: (x, k) => x[k], f: (v, k) => k === 'exo' ? (v ?? '—') : `<span class="${cls(v)}">${F.p(v)}</span>`, def: 'rnCagr' },
   annees: { n: 'Années civiles', cols: null, def: null },
@@ -1301,6 +1305,8 @@ function vFraicheur() {
       <p><b>Indicateurs.</b> MM 20/50/100, RSI 14 (Wilder), MACD 12/26/9, stochastique 14 lissé 3, Bollinger 20 ±2σ, Z-score 252 (minimum 20, très étiré au-delà de 2,2), Supertrend ATR 10 × 3, ADX/DI 14, OBV, Donchian 252, cassures ATR 14 sur 20 séances, Ichimoku 9/26/52, profil de volume 36 niveaux (zone de valeur 70 %), doubles sommets/creux (pivots 3 %, tolérance 2 %, 5–60 séances).</p>
       <p><b>Phases.</b> Distance au plus haut 20 séances (seuil 3,2 %), histogramme MACD, RSI (60) et MM50. Une phase s’affiche à sa deuxième séance consécutive. Tension : RSI ≥ 70 ou ≤ 30, cours > MM20 + 10 %, ou hausse > 20 % en 20 séances.</p>
       <p><b>Scores.</b> Pondérations et seuils publiés par BRVMetrics (méthode v1.20) ; les sous-composantes sont calculées ici. Qualité : tendance 30, timing 25, prix payé 20, risque 15, dividende 10 ; garde-fous RSI > 70, Z > 2,2, +25 % en 20 séances, liquidité < 35. Contexte : marché 45, comptes 30, liquidité 25. Note des comptes : 5 critères à 20 %, pairs du secteur ou banques / non-banques. Liquidité : valeur moyenne 50 % (points log : 100 k → 0, 500 k → 30, 2 M → 50, 10 M → 75, 50 M → 100), fréquence 30 %, écart haut-bas 20 %. Aucun de ces scores ne prédit le rendement futur : les tests publiés ne trouvent aucun indicateur isolé rentable après frais.</p>
+      <p><b>Free cash flow.</b> Lu dans le tableau des flux de trésorerie des états financiers SYSCOHADA publiés sur brvm.org : flux opérationnels moins acquisitions d’immobilisations corporelles et incorporelles. Rendement FCF = dernier FCF ÷ capitalisation. Non calculé pour les banques. Les PDF illisibles (scans) restent vides.</p>
+      <p><b>Profondeur d’historique.</b> Les cours journaliers commencent fin 2006 (premières séances numérisées par SikaFinance et le miroir public) ; aucune source gratuite ne publie les séances 1998–2006. Les dividendes viennent des avis BRVM depuis l’exercice 2015.</p>
       <p><b>Stratégie.</b> Règle SMA 200 (investi quand la clôture est au-dessus de la moyenne des 200 dernières séances, avec marge et confirmation réglables), règle MM80 / MM150 (entrée au croisement, sortie 5 % sous la MM80), achat-conservation en référence, frais par défaut ≈ 2,96 % aller-retour, trésorerie à 4,5 %, dividendes nets au détachement.</p>
       <p><b>Sources.</b> Les données restent la propriété de la BRVM, de SikaFinance et de RicheBourse, via le miroir public de BRVMetrics. Usage personnel, sans garantie d’exactitude. Ce n’est pas un conseil en investissement.</p></div></div></div>`;
 }

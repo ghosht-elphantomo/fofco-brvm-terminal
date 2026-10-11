@@ -1,0 +1,51 @@
+name: Free cash flow (états financiers)
+
+# Lit le tableau des flux de trésorerie des états financiers publiés sur brvm.org.
+# Une fois par semaine (les comptes ne changent pas souvent) ou à la main.
+on:
+  schedule:
+    - cron: "23 5 * * 0"   # dimanche matin
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: fcf
+  cancel-in-progress: false
+
+jobs:
+  fcf:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer pdftotext
+        run: sudo apt-get install -y -qq poppler-utils >/dev/null
+
+      - name: Récupérer le miroir public (liste des états financiers)
+        run: git clone --depth 1 https://github.com/harzat/brvm-data-public.git /tmp/src
+
+      - name: Extraire les flux de trésorerie
+        run: python pipeline/fcf_extract.py --src /tmp/src --out history/fcf.json --since 2016
+
+      - name: Enregistrer history/fcf.json
+        run: |
+          git config user.name "fofco-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add history/fcf.json
+          git diff --cached --quiet && exit 0
+          git commit -qm "Free cash flow : états financiers BRVM"
+          git pull -q --rebase origin main
+          git push -q origin HEAD:main
+
+      - name: Relancer la mise à jour des données
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run update.yml --ref main

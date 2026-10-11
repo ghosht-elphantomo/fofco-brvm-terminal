@@ -245,6 +245,31 @@ def build(src, live_path, out, hist_dir=None):
             "date": f.get("date_source"),
         }
 
+    # Free cash flow lu dans les états financiers (fcf_extract.py), en millions de FCFA
+    fcf = load_json(os.path.join(hist_dir, "fcf.json"), {}) if hist_dir else {}
+    for t, years in (fcf.get("series") or {}).items():
+        if t not in fund_out:
+            continue
+        ser = fund_out[t]["series"]
+        nbt = (fund.get(t) or {}).get("nb_titres")
+        for y, r in years.items():
+            if r.get("fcf") is None:
+                continue
+            ser.setdefault("cfo", {})[y] = r["cfo"]
+            ser.setdefault("capex", {})[y] = r["capex"]
+            ser.setdefault("fcf", {})[y] = r["fcf"]
+            ca = (ser.get("ca") or {}).get(y)
+            rn = (ser.get("resultat_net") or {}).get(y)
+            if ca:
+                ser.setdefault("marge_fcf", {})[y] = round(r["fcf"] / ca * 100, 2)
+            if rn and rn > 0:
+                ser.setdefault("conversion_fcf", {})[y] = round(r["fcf"] / rn * 100, 1)
+            if nbt:
+                ser.setdefault("fcf_par_action", {})[y] = round(r["fcf"] * 1e6 / nbt, 1)
+        if ser.get("fcf"):
+            ly = max(ser["fcf"], key=int)
+            fund_out[t]["fcf_last"] = {"exercice": int(ly), "fcf": ser["fcf"][ly], "src": years[ly].get("src")}
+
     div_out = {}
     for r in divs.get("all", []):
         t = r.get("ticker")
