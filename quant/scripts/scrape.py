@@ -24,16 +24,26 @@ FR_MONTHS = {m: i + 1 for i, m in enumerate(["janvier", "février", "mars", "avr
 FR_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
 
+ERRORS = {}
+
+
 def log(*a):
     print("[scrape]", *a, flush=True)
 
 
-def get(url, tries=3, timeout=30):
+def fail(key, e):
+    ERRORS[key] = f"{type(e).__name__}: {e}"[:300]
+    log(key, "failed:", ERRORS[key])
+
+
+def get(url, tries=3, timeout=30, headers=None):
     err = None
     for k in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*",
-                                                       "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8"})
+            h = {"User-Agent": UA, "Accept": "application/json,text/html,*/*;q=0.8",
+                 "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8"}
+            h.update(headers or {})
+            req = urllib.request.Request(url, headers=h)
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return r.read()
         except Exception as e:  # noqa: BLE001
@@ -65,7 +75,7 @@ def chart(sym, rng, interval, events=""):
         url = (f"https://{host}.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(sym)}"
                f"?range={rng}&interval={interval}&includePrePost=false" + (f"&events={events}" if events else ""))
         try:
-            j = json.loads(get(url))
+            j = json.loads(get(url, headers={"Referer": "https://finance.yahoo.com/", "Origin": "https://finance.yahoo.com"}))
             res = j["chart"]["result"][0]
             if not res.get("timestamp"):
                 raise ValueError("no bars")
@@ -165,6 +175,64 @@ def live_quote():
         "l": [r2(b[3]) for b in bars], "c": [r2(b[4]) for b in bars], "v": [int(b[5]) for b in bars]}
 
 
+# ------------------------------------------------------------------ Nasdaq fallbacks (no dividends)
+NQ_H = {"Origin": "https://www.nasdaq.com", "Referer": "https://www.nasdaq.com/"}
+
+
+def money(x):
+    return num(str(x).replace("$", "")) if x not in (None, "", "N/A") else None
+
+
+def nasdaq_live():
+    j = json.loads(get("https://api.nasdaq.com/api/quote/QQQ/chart?assetclass=etf", headers=NQ_H))
+    d = j["data"]
+    pts = [(int(p["x"]) // 1000, float(p["y"])) for p in d.get("chart") or [] if p.get("y") is not None]
+    if not pts:
+        raise ValueError("no chart points")
+    price = money(d.get("lastSalePrice")) or pts[-1][1]
+    prev = money(d.get("previousClose")) or pts[0][1]
+    bars, cur = [], None
+    for t, y in pts:
+        b = t - t % 300
+        if cur and cur[0] == b:
+            cur[2], cur[3], cur[4] = max(cur[2], y), min(cur[3], y), y
+        else:
+            cur = [b, y, y, y, y, 0]
+            bars.append(cur)
+    day = dt.datetime.fromtimestamp(pts[-1][0] - 4 * 3600, dt.timezone.utc).date().isoformat()
+    mstat = str(d.get("marketStatus") or "").upper()
+    state = "REGULAR" if "OPEN" in mstat and "PRE" not in mstat and "AFTER" not in mstat else "PRE" if "PRE" in mstat else "POST" if "AFTER" in mstat else "CLOSED"
+    r2 = lambda v: round(float(v), 2)  # noqa: E731
+    return {"price": r2(price), "prev": r2(prev), "chg": round(price / prev - 1, 6), "day": day, "state": state,
+            "open": r2(bars[0][1]), "dayHigh": r2(max(b[2] for b in bars)), "dayLow": r2(min(b[3] for b in bars)),
+            "vol": 0, "time": pts[-1][0], "src": "nasdaq"}, \
+        {"t": [b[0] for b in bars], "o": [r2(b[1]) for b in bars], "h": [r2(b[2]) for b in bars],
+         "l": [r2(b[3]) for b in bars], "c": [r2(b[4]) for b in bars], "v": [0 for _ in bars]}
+
+
+def nasdaq_daily_append(hist):
+    """Append missing QQQ sessions from Nasdaq when Yahoo is unavailable (markets carried forward)."""
+    frm = hist["d"][-1]
+    j = json.loads(get(f"https://api.nasdaq.com/api/quote/QQQ/historical?assetclass=etf&fromdate={frm}&limit=60", headers=NQ_H))
+    rows = (((j.get("data") or {}).get("tradesTable") or {}).get("rows")) or []
+    new = []
+    for r in rows:
+        m, d_, y = r["date"].split("/")
+        d = f"{y}-{m}-{d_}"
+        c = money(r.get("close"))
+        if d > hist["d"][-1] and c:
+            new.append((d, money(r.get("open")) or c, money(r.get("high")) or c, money(r.get("low")) or c, c,
+                        int(num(str(r.get("volume", "0")).replace(",", "")) or 0)))
+    for d, o, h, l, c, v in sorted(new):
+        for k, val in zip(("d", "o", "h", "l", "c", "v", "div"), (d, o, h, l, c, v, 0)):
+            hist[k].append(val)
+        for t in hist["mk"]:
+            hist["mk"][t].append(hist["mk"][t][-1])
+    if new:
+        hist["asof"] = hist["d"][-1]
+    return len(new)
+
+
 # ------------------------------------------------------------------ BRVM
 class Tables(HTMLParser):
     def __init__(self):
@@ -227,9 +295,11 @@ def scrape_brvm(prev):
             t, vol, pv, op, cl, var = r[0].strip(), num(r[2]), num(r[3]), num(r[4]), num(r[5]), num(r[6])
             if cl is None or cl <= 0:
                 continue
-            calc = round((cl / pv - 1) * 100, 2) if pv else None
-            if var is None or (calc is not None and abs(var - calc) > 0.6):
-                var = calc if calc is not None else 0.0
+            # After the session brvm.org already shows the new reference price as "cours veille":
+            # the published variation is the reliable field, the previous close is derived from it.
+            if var is None or abs(var) > 15:  # BRVM daily band is ±7.5 %: anything wider is a parse error
+                var = round((cl / pv - 1) * 100, 2) if pv else 0.0
+            pv = round(cl / (1 + var / 100), 2) if var > -100 else pv
             out.append({"t": t, "vol": int(vol or 0), "prev": pv, "o": op if op else None, "c": cl, "vj": var})
     if len(out) < 40:
         raise ValueError(f"only {len(out)} BRVM rows parsed")
@@ -247,7 +317,7 @@ def scrape_brvm(prev):
     try:
         idx, sect = scrape_indices(idx, sect)
     except Exception as e:  # noqa: BLE001
-        log("indices failed, keeping previous:", e)
+        fail("brvm_indices", e)
     label = f"{FR_DAYS[sess.weekday()]} {sess.day} {[k for k, v in FR_MONTHS.items() if v == sess.month][0]} {sess.year}"
     return {"asof": sess.isoformat(), "session": label, "src": "brvm.org (cours du jour)", "rows": out,
             "idx": idx, "sect": sect, "capA": capA, "capO": capO, "ts": int(time.time())}
@@ -263,22 +333,31 @@ SECT_MAP = [("CONSOMMATION DE BASE", "CB"), ("DISCRETIONNAIRE", "CD"), ("DISCRÉ
 
 def scrape_indices(idx_prev, sect_prev):
     rows, _ = parse(get("https://www.brvm.org/fr/indices").decode("utf8", "replace"))
-    idx, sect = {}, {}
+    idx, sect, score = {}, {}, {}
     for r in rows:
-        if len(r) < 4 or "BRVM" not in r[0].upper():
+        if not r or "BRVM" not in r[0].upper():
             continue
-        name, close, var = r[0].upper(), num(r[2]), num(r[3])
-        if close is None:
+        name = r[0].upper()
+        nums = [v for v in (num(c) for c in r[1:]) if v is not None]
+        if len(nums) >= 3 and nums[0] > 0 and abs((nums[1] / nums[0] - 1) * 100 - nums[2]) < 0.15:
+            close, var, q = nums[1], nums[2], 2          # prev | close | var% (| YTD)
+        elif len(nums) >= 2 and nums[0] > 1 and abs(nums[1]) < 25:
+            close, var, q = nums[0], nums[1], 1          # close | var%
+        else:
             continue
-        for key, sc in SECT_MAP:
-            if key in name:
-                sect[sc] = {"k": sc, "v": close, "vj": var}
+        key = None
+        for k, sc in SECT_MAP:
+            if k in name:
+                key, rec = "s:" + sc, {"k": sc, "v": close, "vj": var}
                 break
         else:
-            for key, code, label in IDX_MAP:
-                if key in name:
-                    idx.setdefault(code, {"k": code, "n": label, "v": close, "vj": var})
+            for k, code, label in IDX_MAP:
+                if k in name:
+                    key, rec = "i:" + code, {"k": code, "n": label, "v": close, "vj": var}
                     break
+        if key and q >= score.get(key, 0):
+            score[key] = q
+            (sect if key[0] == "s" else idx)[key[2:]] = rec
     order = ["BRVM-C", "BRVM-30", "BRVM-PRES", "BRVM-PRIN", "BRVM-CTR"]
     if "BRVM-C" not in idx:
         raise ValueError("composite not found")
@@ -287,6 +366,24 @@ def scrape_indices(idx_prev, sect_prev):
     sp = {x["k"]: x for x in sect_prev}
     sect_out = [sect.get(k) or sp.get(k) for k in ["TL", "CD", "SF", "CB", "IN", "EN", "SP"] if sect.get(k) or sp.get(k)]
     return idx_out, sect_out
+
+
+def archive_brvm(b):
+    """Append the session to seed/brvm_daily.csv (one line per stock per session)."""
+    path = os.path.join(DATA, "brvm_daily.csv")
+    have = set()
+    if os.path.exists(path):
+        with open(path, encoding="utf8") as f:
+            have = {line.split(",", 1)[0] for line in f}
+    if b["asof"] in have:
+        return
+    new = not os.path.exists(path)
+    with open(path, "a", encoding="utf8") as f:
+        if new:
+            f.write("date,ticker,close,var_pct,volume,prev\n")
+        for r in b["rows"]:
+            f.write(f'{b["asof"]},{r["t"]},{r["c"]},{r["vj"]},{r["vol"]},{r["prev"]}\n')
+    log("archived BRVM session", b["asof"])
 
 
 def roll_year(last):
@@ -329,7 +426,12 @@ def main():
         live, intraday = live_quote()
         log("QQQ", live["price"], live["state"], live["day"])
     except Exception as e:  # noqa: BLE001
-        log("live quote failed:", e)
+        fail("yahoo_live", e)
+        try:
+            live, intraday = nasdaq_live()
+            log("QQQ (nasdaq)", live["price"], live["state"], live["day"])
+        except Exception as e2:  # noqa: BLE001
+            fail("nasdaq_live", e2)
 
     behind = bool(hist and live and live["day"] > hist["asof"] and live["state"] != "REGULAR")
     if a.mode == "eod" or not hist or behind:
@@ -340,7 +442,15 @@ def main():
                 dump(hist, os.path.join(st, "history.json"))
                 log("history rebuilt", hist["asof"], len(hist["d"]))
         except Exception as e:  # noqa: BLE001
-            log("history failed, keeping snapshot:", e)
+            fail("yahoo_history", e)
+            if hist:
+                try:
+                    n = nasdaq_daily_append(hist)
+                    if n:
+                        dump(hist, os.path.join(st, "history.json"))
+                        log("history +", n, "sessions (nasdaq)")
+                except Exception as e2:  # noqa: BLE001
+                    fail("nasdaq_history", e2)
 
     brvm = load("brvm.json", folder=st) or load("brvm.json")
     try:
@@ -350,13 +460,15 @@ def main():
             roll_year(brvm)
         dump(fresh, os.path.join(st, "brvm.json"))
         brvm = fresh
+        if a.mode == "eod":
+            archive_brvm(fresh)
     except Exception as e:  # noqa: BLE001
-        log("BRVM failed, keeping snapshot:", e)
+        fail("brvm", e)
 
     dump(hist, os.path.join(out_data, "history.json"))
     dump(brvm, os.path.join(out_data, "brvm.json"))
     shutil.copy(os.path.join(DATA, "brvm_ref.json"), os.path.join(out_data, "brvm_ref.json"))
-    dump({"ts": int(time.time()), "qqq": live, "intraday": intraday}, os.path.join(out_data, "live.json"))
+    dump({"ts": int(time.time()), "qqq": live, "intraday": intraday, "errors": ERRORS}, os.path.join(out_data, "live.json"))
     rows = []
     for i in range(max(0, len(hist["d"]) - 40), len(hist["d"])):
         rows.append({"d": hist["d"][i], "o": hist["o"][i], "h": hist["h"][i], "l": hist["l"][i], "c": hist["c"][i],

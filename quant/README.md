@@ -41,7 +41,12 @@ quant/index.html          page générée : python3 quant/build.py
 quant/src/                style.css, body.html, engine.js (moteur quant), ui.js (interface)
 quant/scripts/scrape.py   collecte Yahoo + brvm.org (bibliothèque standard Python)
 quant/seed/               état initial (history.json, brvm.json) + brvm_ref.json
+quant/seed/brvm_daily.csv archive BRVM : une ligne par titre et par séance (ajoutée à chaque EOD)
+quant/seed/csv/           données brutes : QQQ + 21 marchés en quotidien (OHLCV + dividendes, 2016 → 2026),
+                          BRVM_48_2026-10-09.csv (cours + fondamentaux BOC), BRVM_INDICES_2026-10-09.csv
 ```
+
+Chaque soir (EOD), le workflow archive la séance BRVM dans `seed/brvm_daily.csv` et `seed/brvm.json` ; le vendredi, il rafraîchit aussi `seed/history.json`. La branche `quant-data` contient toujours le jeu complet le plus récent (y compris `live.json` : cours QQQ et bougies 5 min).
 
 ## En local
 
