@@ -1,0 +1,53 @@
+name: Mise à jour des données
+
+# Heures en UTC = heure d'Abidjan (GMT). Séance BRVM : 9:00–15:30, cours publiés avec 15 min de différé.
+on:
+  schedule:
+    - cron: "*/15 8-16 * * 1-5"   # toutes les 15 min pendant la séance (et un peu avant / après)
+    - cron: "17 19 * * 1-5"       # soirée : comptes, dividendes et avis du jour
+    - cron: "17 8 * * 6"          # samedi matin : rattrapage
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ["index.html", "pipeline/**", ".github/workflows/**"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Récupérer le miroir public (historiques, comptes, dividendes, avis)
+        run: git clone --depth 1 https://github.com/harzat/brvm-data-public.git /tmp/src
+
+      - name: Relever la séance (brvm.org + SikaFinance)
+        continue-on-error: true
+        run: python pipeline/scrape_live.py /tmp/live.json
+
+      - name: Construire les fichiers de données
+        run: python pipeline/build.py --src /tmp/src --live /tmp/live.json --out /tmp/out/data
+
+      - name: Publier sur la branche data
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp index.html /tmp/out/index.html
+          cd /tmp/out
+          git init -q -b data
+          git config user.name "fofco-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Données $(date -u +'%d/%m/%Y %H:%M') UTC"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
