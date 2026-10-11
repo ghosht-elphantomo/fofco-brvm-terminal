@@ -1,6 +1,6 @@
 {
   "github": { "silent": true },
   "redirects": [
-    { "source": "/:path*", "destination": "https://fofco-brvm-terminal-git-data-screener3.vercel.app/:path*", "permanent": false }
+    { "source": "/:path*", "destination": "https://ghosht-elphantomo-fofco-brvm-terminal-git-data-screener3.vercel.app/:path*", "permanent": false }
   ]
 }
