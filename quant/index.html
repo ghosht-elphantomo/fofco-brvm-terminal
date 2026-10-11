@@ -1,0 +1,1827 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Claude × Quant</title>
+<meta name="description" content="Terminal quant : backtest QQQ/TQQQ, Monte Carlo, analogues k-NN, Kuramoto, Bayes et les 48 actions BRVM.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: terminal wall — 5 split rows (60/40-ish) of hairline panels on near-black, mono type only.
+   Single dark look by design (with an in-page LIGHT skin toggle, like the original). */
+:root{
+  --bg:#03050a; --panel:#060a12; --panel2:#0a1019; --inset:#04070d;
+  --line:#141c2b; --line2:#1d2840; --grid:#0f1624;
+  --txt:#e8eef8; --dim:#5d6a80; --dim2:#323d52;
+  --green:#3fe08a; --green2:#169a55; --red:#ff3b55; --red2:#9d1630;
+  --amber:#f6b73c; --orange:#ff8a2a; --cyan:#3ccaf5; --magenta:#ff2f86; --violet:#a58bff; --white:#ffffff;
+  --glow:0 0 18px rgba(63,224,138,.35);
+  --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme:dark;
+}
+body.light{
+  --bg:#e9edf3; --panel:#fbfcfe; --panel2:#f1f4f9; --inset:#f5f7fb;
+  --line:#d5dce8; --line2:#c3cddd; --grid:#e6ebf3;
+  --txt:#0d1422; --dim:#5f6b7f; --dim2:#a9b3c4;
+  --green:#0d9f57; --green2:#0b7a43; --red:#d61f3c; --red2:#a8142c;
+  --amber:#b97800; --orange:#d9620b; --cyan:#0a8fc0; --magenta:#d1186a; --violet:#6b4fe0; --white:#0d1422;
+  --glow:none; color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+body{margin:0;color:var(--txt);font:500 12px/1.35 var(--mono);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:1px solid var(--amber);outline-offset:1px}
+.wrap{max-width:1680px;margin:0 auto;padding-inline:12px;padding-block:8px 14px;display:flex;flex-direction:column;gap:6px}
+
+/* ---------- header ---------- */
+.hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;padding:6px 4px 4px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:34px;height:34px;border:1.5px solid var(--amber);border-radius:4px;display:grid;place-items:center;color:var(--amber);font-weight:800;font-size:18px;box-shadow:0 0 14px rgba(246,183,60,.25) inset}
+.bt{font-weight:800;font-size:16px;letter-spacing:.12em}
+.bt em{font-style:normal;color:var(--amber);padding:0 .25em}
+.bs{font-size:9px;letter-spacing:.14em;color:var(--dim);margin-top:2px}
+.hmid{display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap}
+.nav{display:flex;gap:6px;font-weight:800;letter-spacing:.14em;font-size:11px}
+.nav a{color:var(--txt);text-decoration:none}
+.nav a:hover{color:var(--amber)}
+.nav i{color:var(--dim);font-style:normal}
+.pill-red{border:1.5px solid var(--red);color:var(--red);background:rgba(255,59,85,.08);padding:4px 12px;border-radius:3px;font-weight:800;letter-spacing:.14em;font-size:10.5px;box-shadow:0 0 12px rgba(255,59,85,.35),inset 0 0 8px rgba(255,59,85,.25);animation:redpulse 2.6s ease-in-out infinite}
+@keyframes redpulse{50%{box-shadow:0 0 4px rgba(255,59,85,.2),inset 0 0 4px rgba(255,59,85,.15)}}
+.fit{display:flex;align-items:center;gap:2px;color:var(--dim);font-size:10px;letter-spacing:.12em}
+.fit button{background:none;border:0;color:var(--dim);padding:2px 6px;font-weight:700}
+.fit button:hover{color:var(--amber)}
+.fit b{color:var(--txt);font-weight:600;min-width:42px;text-align:center}
+.light-t{background:none;border:1px solid var(--line2);color:var(--dim);padding:3px 8px;border-radius:3px;font-size:10px;letter-spacing:.12em}
+.light-t:hover{color:var(--txt)}
+.hright{display:flex;align-items:center;gap:14px}
+.status{border:1px solid rgba(63,224,138,.45);background:rgba(63,224,138,.07);color:var(--green);padding:4px 10px;border-radius:3px;font-size:10px;letter-spacing:.12em;font-weight:700;line-height:1.25}
+.status.eod{border-color:rgba(246,183,60,.5);background:rgba(246,183,60,.07);color:var(--amber)}
+.status i{display:inline-block;width:6px;height:6px;border-radius:50%;background:currentColor;margin-right:6px;vertical-align:1px;animation:blink 1.2s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+.syncb{background:none;border:1px solid var(--cyan);color:var(--cyan);font-size:10px;font-weight:800;letter-spacing:.12em;padding:4px 9px;border-radius:3px}
+.syncb:hover{background:rgba(60,202,245,.1)}
+.syncb:disabled{opacity:.6;cursor:default}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:70;background:var(--panel2);border:1px solid var(--cyan);color:var(--txt);padding:10px 14px;font-size:12px;max-width:min(92vw,560px);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.lat{text-align:right;line-height:1.1}
+.lat b{display:block;color:var(--amber);font-size:13px;font-weight:800}
+.lat span{font-size:8.5px;color:var(--dim);letter-spacing:.12em}
+.clock{font-size:27px;font-weight:700;letter-spacing:.02em}
+.clk2{font-size:8.5px;color:var(--dim);letter-spacing:.1em;line-height:1.2}
+.clk2 b{display:block;color:var(--txt);font-size:9px;font-weight:700}
+
+/* ---------- rank strip + tapes ---------- */
+.rank{display:flex;align-items:center;gap:18px;font-size:10.5px;font-weight:700;letter-spacing:.08em;padding:3px 4px;white-space:nowrap;overflow:hidden}
+.rank .trophy{color:var(--amber);display:flex;align-items:center;gap:6px}
+.rank .g{color:var(--green)}
+.rank .sep{color:var(--dim2)}
+.rank .right{margin-left:auto;border:1px solid rgba(246,183,60,.5);color:var(--amber);padding:2px 8px;border-radius:3px;font-size:9.5px}
+.tape{display:flex;align-items:center;height:20px;border-block:1px solid var(--line);overflow:hidden;font-size:10px;color:var(--dim)}
+.tape .tag{flex:none;background:var(--red);color:#fff;font-weight:800;letter-spacing:.12em;padding:0 10px;height:100%;display:flex;align-items:center;gap:6px;position:relative;z-index:2}
+.tape .tag.y{background:var(--amber);color:#111}
+.tape-in{display:flex;gap:26px;white-space:nowrap;animation:tape 120s linear infinite;padding-left:20px}
+.tape-in span b{color:var(--txt);font-weight:700}
+.up{color:var(--green)} .dn{color:var(--red)} .fl{color:var(--dim)}
+@keyframes tape{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ---------- grid rows + panels ---------- */
+.row{display:grid;gap:6px;min-width:0}
+.r1{grid-template-columns:1.45fr 1fr}
+.r2{grid-template-columns:1.72fr 1fr}
+.r3{grid-template-columns:1.05fr 1fr}
+.r4{grid-template-columns:1.55fr 1fr}
+.r5{grid-template-columns:1.62fr 1fr}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:3px;position:relative;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.ph{display:flex;align-items:center;gap:10px;padding:6px 10px 5px;border-bottom:1px solid var(--grid);min-height:30px}
+.ph-t{display:flex;align-items:center;gap:8px;font-weight:800;font-size:11.5px;letter-spacing:.14em;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ph-t::before{content:"";width:2px;height:14px;background:var(--amber);flex:none}
+.ph-t em{font-style:normal;color:var(--amber)}
+.ph-t .ico{color:var(--txt);font-style:normal;font-size:11px}
+.badges{margin-left:auto;display:flex;gap:6px;align-items:center;flex:none}
+.bdg{border:1px solid currentColor;padding:2px 7px;border-radius:2px;font-size:9.5px;font-weight:800;letter-spacing:.1em;white-space:nowrap;background:rgba(0,0,0,.25)}
+.bdg.a{color:var(--amber);background:rgba(246,183,60,.06)}
+.bdg.g{color:var(--green);background:rgba(63,224,138,.06)}
+.bdg.r{color:var(--red);background:rgba(255,59,85,.07)}
+.bdg.c{color:var(--cyan)}
+.sub{display:flex;justify-content:space-between;gap:10px;font-size:8.5px;letter-spacing:.12em;color:var(--dim);padding:4px 10px 0;text-transform:uppercase}
+.sub b{color:var(--amber);font-weight:700}
+.info{border:1px solid var(--line2);background:none;color:var(--dim);width:17px;height:17px;border-radius:50%;font-size:9.5px;font-weight:800;padding:0;flex:none;line-height:1}
+.info:hover,.info[aria-expanded="true"]{color:var(--amber);border-color:var(--amber)}
+.explain{position:absolute;inset:30px 8px auto auto;width:min(360px,calc(100% - 16px));z-index:20;background:var(--panel2);border:1px solid var(--amber);border-radius:3px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:var(--txt);box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.explain b{color:var(--amber)}
+.explain p{margin:0 0 6px}
+canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
+[hidden]{display:none!important}
+
+/* PNL */
+.pnl{padding:8px 12px 10px;display:flex;flex-direction:column;gap:6px;height:100%}
+.pnl-top{display:flex;align-items:center;gap:10px}
+.pnl-top .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+.pid{font-weight:800;font-size:14px;letter-spacing:.04em;cursor:pointer}
+.pid:hover{color:var(--amber)}
+.pnl-sub{font-size:9px;color:var(--dim);letter-spacing:.12em;margin-top:-3px}
+.pnl-main{display:flex;align-items:flex-start;gap:18px;margin-top:2px}
+.big{font-weight:800;font-size:clamp(40px,5.6vw,74px);line-height:.95;letter-spacing:-.02em;color:var(--green);text-shadow:var(--glow);white-space:nowrap}
+.big sup{font-size:.48em;vertical-align:.7em;margin-right:2px}
+.big.neg{color:var(--red)}
+.delta{display:flex;flex-direction:column;gap:4px;padding-top:6px}
+.dbox{border:1px solid rgba(63,224,138,.55);color:var(--green);padding:5px 14px;font-weight:800;font-size:15px;min-width:150px;background:rgba(63,224,138,.05)}
+.dbox.neg{border-color:rgba(255,59,85,.6);color:var(--red);background:rgba(255,59,85,.05)}
+.dlab{font-size:9px;color:var(--dim);letter-spacing:.12em}
+.dlab b{color:var(--txt)}
+.dpct{color:var(--green);font-weight:800;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:2px}
+.kpi span{display:block;font-size:9px;color:var(--dim);letter-spacing:.14em}
+.kpi b{font-size:clamp(18px,2vw,25px);font-weight:800}
+.eqbox{position:relative;flex:1;min-height:64px;border:1px solid var(--line);background:var(--inset)}
+.eqlab{position:absolute;left:8px;top:5px;font-size:9px;color:var(--dim);letter-spacing:.14em;pointer-events:none}
+.eqlab em{color:var(--amber);font-style:normal;font-weight:800}
+.risk{border:1px solid rgba(63,224,138,.35);padding:6px 10px 8px;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:6px 10px}
+.risk .rl{font-size:11px;font-weight:800;letter-spacing:.12em}
+.risk .rl b{color:var(--green);font-size:18px;margin-left:6px}
+.risk .rl span{color:var(--dim);font-size:10px}
+.rbar{grid-column:1/-1;height:6px;background:var(--grid);position:relative}
+.rbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--green),var(--amber),var(--red))}
+.rbar u{position:absolute;top:-3px;width:2px;height:12px;background:var(--txt);opacity:.7}
+.rnote{font-size:9px;color:var(--dim);letter-spacing:.08em;text-align:right}
+
+/* chart */
+.chartwrap{display:grid;grid-template-columns:1fr 138px;flex:1;min-height:0}
+.chartc{position:relative;min-width:0}
+.cprice{position:absolute;left:10px;top:6px;font-weight:800;font-size:22px;pointer-events:none;z-index:2}
+.cprice small{font-size:12px;margin-left:8px}
+.ctf{position:absolute;right:58px;top:6px;display:flex;gap:4px;z-index:3}
+.ctf button{background:var(--inset);border:1px solid var(--line2);color:var(--dim);font-size:9px;font-weight:800;padding:1px 6px;letter-spacing:.08em}
+.ctf button.on{color:var(--amber);border-color:var(--amber)}
+.xhair{position:absolute;left:10px;top:33px;font-size:9.5px;color:var(--dim);pointer-events:none;z-index:2;white-space:nowrap}
+.ladder{border-left:1px solid var(--grid);padding:6px 8px;font-size:10.5px;display:flex;flex-direction:column;gap:1px}
+.ladder .lh{display:flex;justify-content:space-between;color:var(--dim);font-size:8.5px;letter-spacing:.12em;margin-bottom:4px}
+.lv{display:flex;justify-content:space-between;gap:4px;padding:1.5px 0;font-weight:700}
+.lv small{color:var(--dim);font-weight:600;font-size:9px}
+.lv.r b{color:var(--red)} .lv.g b{color:var(--green)}
+.spread{display:flex;justify-content:space-between;padding:5px 0;margin:3px 0;border-block:1px dashed var(--line2);color:var(--dim);font-size:9px;letter-spacing:.1em}
+.spread b{color:var(--amber);font-size:11px}
+
+/* BRVM grid */
+.gtools{display:flex;gap:4px;flex-wrap:wrap}
+.chip{background:none;border:1px solid var(--line2);color:var(--dim);font-size:9px;font-weight:800;letter-spacing:.1em;padding:2px 7px;border-radius:2px}
+.chip.on{color:var(--amber);border-color:var(--amber);background:rgba(246,183,60,.06)}
+.bgrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px;padding:6px 8px 8px}
+.cell{position:relative;background:var(--panel2);border:1px solid var(--line);border-radius:2px;padding:4px 5px 3px;min-width:0;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:1px;transition:transform .12s,border-color .12s}
+.cell:hover{border-color:var(--amber);transform:translateY(-1px)}
+.cell .ct{font-size:8.5px;color:var(--dim);letter-spacing:.06em;display:flex;justify-content:space-between}
+.cell .cv{font-size:15px;font-weight:800;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .cb{height:2px;background:var(--grid);margin-top:2px;position:relative}
+.cell .cb i{position:absolute;left:0;top:0;bottom:0;background:var(--dim)}
+.cell .cf{display:flex;justify-content:space-between;gap:4px;font-size:8px;color:var(--dim);white-space:nowrap;overflow:hidden}
+.cell .cf b{font-weight:800}
+.cell.s-up2{background:linear-gradient(180deg,rgba(63,224,138,.38),rgba(22,154,85,.22));border-color:rgba(63,224,138,.55)}
+.cell.s-up2 .cv{color:#c9ffe0}
+.cell.s-up1 .cv{color:var(--txt)}
+.cell.s-0 .cv{color:#b9c2d3}
+.cell.s-dn1{background:linear-gradient(180deg,rgba(255,138,42,.14),rgba(120,40,10,.12))}
+.cell.s-dn1 .cv{color:var(--orange)}
+.cell.s-dn2{background:linear-gradient(180deg,rgba(255,59,85,.55),rgba(157,22,48,.4));border-color:rgba(255,59,85,.7)}
+.cell.s-dn2 .cv{color:#ffd4da}
+body.light .cell.s-up2 .cv{color:#064d2a} body.light .cell.s-dn2 .cv{color:#5c0716} body.light .cell.s-0 .cv{color:#56627a}
+.cell.flash{animation:cflash .9s ease-out}
+@keyframes cflash{0%{box-shadow:0 0 0 1px var(--amber),0 0 14px rgba(246,183,60,.6)}100%{box-shadow:none}}
+.btable{overflow:auto;max-height:340px;padding:0 8px 8px}
+.btable table{width:100%;border-collapse:collapse;font-size:10.5px}
+.btable th{position:sticky;top:0;background:var(--panel);color:var(--dim);font-size:8.5px;letter-spacing:.1em;text-align:right;padding:6px 6px;border-bottom:1px solid var(--line2);cursor:pointer;white-space:nowrap}
+.btable th:first-child,.btable td:first-child,.btable th:nth-child(2),.btable td:nth-child(2){text-align:left}
+.btable td{padding:4px 6px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+.btable tr{cursor:pointer}
+.btable tr:hover td{background:var(--panel2)}
+.btable th.on{color:var(--amber)}
+
+/* survival */
+.surv{display:grid;grid-template-columns:1fr 112px;flex:1;min-height:0}
+.sstats{border-left:1px solid var(--grid);padding:6px 8px;font-size:9px;letter-spacing:.08em;color:var(--dim);display:flex;flex-direction:column;gap:5px}
+.sstats div{display:flex;justify-content:space-between}
+.sstats b{color:var(--txt);font-size:10.5px}
+.sstats .bar{height:3px;background:var(--grid);margin-top:-2px}
+.sstats .bar i{display:block;height:100%}
+
+/* vortex */
+.vtx{display:grid;grid-template-columns:118px 1fr 118px 172px;flex:1;min-height:0}
+.vlist{padding:4px 8px;font-size:9.5px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--grid);overflow:hidden}
+.vlist.r{border-left:1px solid var(--grid);border-right:0}
+.vlist h4,.vinfo h4{margin:0 0 3px;font-size:8px;color:var(--dim);letter-spacing:.12em;font-weight:700}
+.vl{display:grid;grid-template-columns:40px 1fr 4px;align-items:center;gap:5px;font-weight:700}
+.vl .vb{height:5px;background:var(--grid);position:relative}
+.vl .vb i{position:absolute;right:0;top:0;bottom:0}
+.vl u{width:4px;height:7px;text-decoration:none}
+.vinfo{padding:4px 8px;display:flex;flex-direction:column;gap:6px;font-size:9.5px;border-left:1px solid var(--grid)}
+.vinfo .box{border:1px solid var(--line);padding:5px 7px;background:var(--inset)}
+.vinfo .kv{display:flex;justify-content:space-between;color:var(--dim);font-size:9px;letter-spacing:.06em}
+.vinfo .kv b{color:var(--txt)}
+.vinfo .reg{font-size:17px;font-weight:800;color:var(--green);letter-spacing:.06em}
+.vinfo .regs{font-size:8.5px;color:var(--dim);letter-spacing:.08em}
+.vcoh{height:38px;position:relative}
+.vcanvas{position:relative;min-width:0}
+
+/* ruin */
+.ruinc{position:relative;flex:1;min-height:0}
+
+/* agent */
+.agent{display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--panel);padding:5px 10px;font-size:11px;min-height:30px}
+.agent .pr{color:var(--amber);font-weight:800;letter-spacing:.12em;flex:none}
+.agent .msg{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim)}
+.agent .msg b{color:var(--txt);font-weight:700} .agent .msg em{font-style:normal;color:var(--green);font-weight:700} .agent .msg i{font-style:normal;color:var(--amber)}
+.agent .cur{display:inline-block;width:7px;height:12px;background:var(--dim);vertical-align:-2px;margin-left:3px;animation:blink 1s steps(2) infinite}
+.agent form{display:flex;gap:6px;flex:none}
+.agent input{background:var(--inset);border:1px solid var(--line2);padding:3px 8px;width:240px;font-size:10.5px;border-radius:2px}
+.agent input::placeholder{color:var(--dim)}
+.agent button{background:none;border:1px solid var(--amber);color:var(--amber);font-size:10px;font-weight:800;padding:3px 9px;letter-spacing:.1em}
+.answer{border:1px solid var(--amber);background:var(--panel2);padding:10px 12px;font-size:11.5px;line-height:1.55;white-space:pre-wrap;position:relative}
+.answer .x{position:absolute;right:6px;top:4px;background:none;border:0;color:var(--dim);font-size:14px}
+
+/* analog */
+.ana{display:grid;grid-template-columns:1fr 168px;flex:1;min-height:0}
+.ana .ac{position:relative;min-width:0}
+.astats{padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.abox{border:1px solid;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;font-weight:800;letter-spacing:.1em;font-size:11px}
+.abox b{font-size:24px}
+.abox i{width:9px;height:9px;display:inline-block;margin-right:8px}
+.abox.m{border-color:rgba(60,202,245,.6)} .abox.m b{color:var(--cyan)} .abox.m i{background:var(--cyan)}
+.abox.u{border-color:rgba(63,224,138,.55)} .abox.u b{color:var(--green)} .abox.u i{background:var(--green)}
+.abox.d{border-color:rgba(255,59,85,.6)} .abox.d b{color:var(--red)} .abox.d i{background:var(--red)}
+.akv{font-size:9.5px;color:var(--dim);letter-spacing:.12em}
+.akv b{font-size:15px;color:var(--txt);margin-left:6px}
+.akv b.am{color:var(--amber)}
+
+/* bayes */
+.bay{display:grid;grid-template-columns:1fr 170px;flex:1;min-height:0}
+.bev{padding:4px 8px;display:flex;flex-direction:column;gap:3px;font-size:8.5px;letter-spacing:.06em;color:var(--dim);border-left:1px solid var(--grid)}
+.bev h4{margin:0 0 2px;font-size:8px;letter-spacing:.12em;font-weight:700}
+.ev{display:grid;grid-template-columns:1fr auto;gap:1px 6px}
+.ev b{font-size:9.5px}
+.ev .eb{grid-column:1/-1;height:4px;background:var(--grid);position:relative}
+.ev .eb i{position:absolute;top:0;bottom:0}
+.bfoot{display:flex;gap:18px;align-items:baseline;padding:6px 10px 8px;border-top:1px solid var(--grid);font-size:10px;color:var(--dim);letter-spacing:.12em;flex-wrap:wrap}
+.bfoot b{color:var(--txt);font-size:15px;margin-left:6px}
+.bfoot .r{margin-left:auto}
+
+/* footer */
+.foot{display:flex;align-items:center;height:22px;border:1px solid var(--line);overflow:hidden;font-size:10px;color:var(--dim);background:var(--panel)}
+.foot .tag{flex:none;background:var(--amber);color:#14100a;font-weight:800;letter-spacing:.12em;padding:0 12px;height:100%;display:flex;align-items:center;z-index:2}
+.foot .tape-in{animation-duration:70s}
+.src{font-size:9px;color:var(--dim);letter-spacing:.06em;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:2px 4px}
+.src a{color:var(--dim)}
+
+/* drawer */
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100%);background:var(--panel);border-left:1px solid var(--amber);z-index:50;transform:translateX(105%);transition:transform .25s ease;display:flex;flex-direction:column;box-shadow:-20px 0 40px rgba(0,0,0,.5)}
+.drawer{visibility:hidden}
+.drawer.open{transform:none;visibility:visible}
+.dh{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--line)}
+.dh b{font-size:13px;letter-spacing:.14em}
+.dh button{background:none;border:1px solid var(--line2);color:var(--dim);padding:2px 9px}
+.dbody{overflow:auto;padding:12px 14px 30px;display:flex;flex-direction:column;gap:14px}
+.dsec h5{margin:0 0 7px;font-size:9.5px;letter-spacing:.16em;color:var(--amber)}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.fgrid label{display:flex;flex-direction:column;gap:3px;font-size:9px;letter-spacing:.1em;color:var(--dim)}
+.fgrid input,.fgrid select,.dsec select{background:var(--inset);border:1px solid var(--line2);padding:5px 7px;font-size:11.5px;border-radius:2px;width:100%}
+.fgrid label.full{grid-column:1/-1}
+.sdesc{font-size:11px;line-height:1.5;color:var(--dim);margin-top:6px}
+.run{display:flex;gap:8px}
+.run button{flex:1;padding:8px;font-weight:800;letter-spacing:.14em;font-size:11px;border-radius:2px}
+.run .go{background:var(--amber);border:0;color:#14100a}
+.run .rs{background:none;border:1px solid var(--line2);color:var(--dim)}
+.mt{width:100%;border-collapse:collapse;font-size:10.5px}
+.mt th,.mt td{padding:4px 5px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+.mt th{color:var(--dim);font-size:8.5px;letter-spacing:.1em;font-weight:700}
+.mt td:first-child,.mt th:first-child{text-align:left;color:var(--dim)}
+.note{font-size:10px;line-height:1.5;color:var(--dim)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+
+/* modal */
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.98);width:min(520px,calc(100% - 24px));max-height:calc(100% - 40px);overflow:auto;background:var(--panel);border:1px solid var(--amber);z-index:60;opacity:0;pointer-events:none;transition:all .18s;box-shadow:0 30px 60px rgba(0,0,0,.6)}
+.modal.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
+.mh{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 14px;border-bottom:1px solid var(--line)}
+.mh h3{margin:0;font-size:20px;letter-spacing:.06em}
+.mh p{margin:2px 0 0;font-size:10px;color:var(--dim);letter-spacing:.08em}
+.mh button{background:none;border:1px solid var(--line2);color:var(--dim);padding:2px 9px}
+.mb{padding:12px 14px 16px;display:flex;flex-direction:column;gap:12px}
+.mprice{display:flex;align-items:baseline;gap:12px}
+.mprice b{font-size:34px;font-weight:800}
+.mkv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mkv div{border:1px solid var(--line);padding:6px 8px;background:var(--inset)}
+.mkv span{display:block;font-size:8.5px;color:var(--dim);letter-spacing:.12em}
+.mkv b{font-size:14px}
+.score{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center}
+.score .sv{font-size:30px;font-weight:800;color:var(--amber)}
+.sbars div{display:grid;grid-template-columns:80px 1fr 34px;gap:8px;align-items:center;font-size:9px;color:var(--dim);letter-spacing:.08em}
+.sbars .sb{height:5px;background:var(--grid)}
+.sbars .sb i{display:block;height:100%;background:var(--amber)}
+.sim{display:flex;gap:8px;align-items:center;font-size:10.5px;color:var(--dim);flex-wrap:wrap}
+.sim input{background:var(--inset);border:1px solid var(--line2);padding:4px 7px;width:130px}
+.sim b{color:var(--green)}
+
+@media (max-width:1100px){
+  .r1,.r2,.r3,.r4,.r5{grid-template-columns:1fr}
+  .hdr{grid-template-columns:1fr auto}
+  .hmid{grid-column:1/-1;order:3;justify-content:flex-start}
+  .bgrid{grid-template-columns:repeat(8,minmax(0,1fr))}
+}
+@media (max-width:640px){
+  .wrap{padding-inline:16px}
+  .ph{flex-wrap:wrap}.ph .badges{margin-left:auto}
+  .pnl-top{flex-wrap:wrap}
+  .eqbox{flex:none;height:96px}
+  .status{white-space:nowrap;padding:3px 7px}.status br{display:none}
+  .hright{gap:8px}
+  .hdr{grid-template-columns:minmax(0,1fr);gap:8px}
+  .hright{order:2;justify-content:space-between}
+  .bs{display:none}
+  .bt{font-size:14px}
+  .hmid{gap:10px}
+  .sub{flex-wrap:wrap}
+  .hright .lat,.clk2{display:none}
+  .clock{font-size:18px}
+  .bgrid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .vtx{grid-template-columns:1fr 1fr}
+  .vtx .vcanvas{grid-column:1/-1;grid-row:1;height:260px}
+  .vinfo{grid-column:1/-1;border-left:0;border-top:1px solid var(--grid)}
+  .chartwrap{grid-template-columns:1fr}
+  .ladder{border-left:0;border-top:1px solid var(--grid)}
+  .ana,.bay,.surv{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .pnl-main{flex-direction:column;gap:8px}
+  .agent{flex-wrap:wrap}
+  .agent form{width:100%} .agent input{flex:1;width:auto}
+  .mkv{grid-template-columns:repeat(2,1fr)}
+  .rank .hide-m{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .tape-in,.pill-red,.status i,.agent .cur{animation:none}
+}
+/* panel heights */
+.r1 .panel{height:350px} .r3 .panel{height:272px} .r4 .panel{height:336px} .r5 .panel{height:312px}
+.r2 .panel.survp{min-height:220px}
+@media (max-width:1100px){ .r2 .panel.survp{height:250px} }
+@media (max-width:640px){
+  .r1 .panel.pnlp{height:auto} .r1 .panel.chp{height:520px} .chartc{height:300px}
+  .r3 .panel{height:240px} .r4 .panel.vtxp{height:auto} .r4 .panel.ruinp{height:300px}
+  .r5 .panel{height:auto} .ana .ac{height:260px} .bay .bc{height:220px}
+  .r2 .panel.survp{height:auto} .surv .sc{height:200px}
+  .vlist{max-height:240px}
+}
+
+</style>
+</head><body>
+<div class="wrap" id="app">
+  <header class="hdr">
+    <div class="brand">
+      <div class="logo">Q</div>
+      <div>
+        <div class="bt">CLAUDE<em>×</em>QUANT</div>
+        <div class="bs">HUNTER OS · QQQ/TQQQ · BRVM 48 · AGENT</div>
+      </div>
+    </div>
+    <div class="hmid">
+      <nav class="nav" aria-label="Modules">
+        <a href="#p-grid" title="Sonar : scan des 48 actions BRVM">SONAR</a><i>·</i>
+        <a href="#p-analog" title="Neural : analogues historiques k-NN">NEURAL</a><i>·</i>
+        <a href="#p-bayes" title="Kelly : probabilité bayésienne et taille de position">KELLY</a>
+      </nav>
+      <button class="pill-red" id="openBT" title="Ouvrir la console de backtest">BACKTEST</button>
+      <div class="fit" title="Zoom du graphique QQQ">
+        <button id="fitMinus" aria-label="Moins de barres">–</button><b id="fitLab">FIT</b><button id="fitPlus" aria-label="Plus de barres">+</button>
+      </div>
+      <button class="light-t" id="skin">◐ LIGHT</button>
+    </div>
+    <div class="hright">
+      <button class="syncb" id="syncBtn" hidden title="Recopier tout de suite le dernier relevé GitHub (15 min)">⟳ SYNC</button>
+      <div class="status eod" id="status"><i></i><span id="statusTxt">EOD ·</span><br><span id="statusSub">CLÔTURE</span></div>
+      <div class="lat"><b id="lat">—</b><span>LATENCY</span></div>
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="clk2"><b id="tz">UTC</b>BAR<br><span id="barn">#0</span></div>
+    </div>
+  </header>
+
+  <div class="rank" id="rank"></div>
+  <div class="tape"><span class="tag" id="tapeTag"><i style="width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block"></i>BRVM</span><div class="tape-in" id="tape"></div></div>
+
+  <section class="row r1">
+    <div class="panel pnlp" id="p-pnl">
+      <div class="pnl">
+        <div class="pnl-top">
+          <span class="dot"></span><span class="pid" id="pid" title="Ouvrir la console de backtest">0x…</span>
+          <b class="bdg g" title="Run déterministe : hash des paramètres + date de la dernière barre">VERIFIED</b>
+          <span class="badges"><b class="bdg a" id="pnlSpan">BACKTEST PNL</b><button class="info" data-info="pnl" aria-label="À quoi sert ce panneau">?</button></span>
+        </div>
+        <div class="pnl-sub" id="psub">—</div>
+        <div class="pnl-main">
+          <div class="big" id="big"><sup>$</sup>0</div>
+          <div class="delta">
+            <div class="dbox" id="dbox">▲ +$0</div>
+            <div class="dlab" id="dlab">SETTLED · —</div>
+            <div class="dpct" id="dpct">+0%</div>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><span>TRADES</span><b id="kT">0</b></div>
+          <div class="kpi"><span>WIN RATE</span><b id="kW" class="up">0%</b></div>
+          <div class="kpi"><span>AVG R/R</span><b id="kR">0</b></div>
+          <div class="kpi"><span>SHARPE</span><b id="kS" style="color:var(--amber)">0</b></div>
+        </div>
+        <div class="eqbox"><canvas id="cv-eq"></canvas><span class="eqlab" id="eqlab">EQUITY CURVE</span></div>
+        <div class="risk" id="riskbox">
+          <div class="rl">DD RISK<b id="riskv">0</b><span> /10</span></div>
+          <div class="rnote" id="rnote"></div>
+          <b class="bdg g" id="riskb">SAFE</b>
+          <div class="rbar"><i id="rfill"></i><u id="rmark" title="Pire drawdown historique"></u></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel chp" id="p-chart">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">▤</i><span id="chTitle">QQQ / USD · 1D</span></span>
+        <span class="badges"><b class="bdg a" id="chSrc">EOD · YAHOO</b><button class="info" data-info="chart" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="chartwrap">
+        <div class="chartc">
+          <div class="cprice" id="cprice">$0</div>
+          <div class="ctf" id="ctf"></div>
+          <canvas id="cv-chart"></canvas>
+          <div class="xhair" id="xhair"></div>
+        </div>
+        <div class="ladder" id="ladder"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row r2">
+    <div class="panel" id="p-grid">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">▦</i>RESOLUTION GRID · <em>BRVM 48 TITRES</em></span>
+        <span class="badges"><b class="bdg a" id="gUp">HAUSSE 0</b><b class="bdg a" id="gDn">BAISSE 0</b><button class="info" data-info="grid" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span id="gSub">—</span><span class="gtools" id="gModes"></span></div>
+      <div class="bgrid" id="bgrid"></div>
+      <div class="btable" id="btable" hidden></div>
+    </div>
+    <div class="panel survp" id="p-surv">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">⧗</i>FILL SURVIVAL · <em>DRAWDOWNS</em></span>
+        <span class="badges"><b class="bdg g" id="sP50">P50 —</b><b class="bdg a" id="sP90">P90 —</b><b class="bdg r" id="sNow">DD —</b><button class="info" data-info="surv" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>PART DES DRAWDOWNS ≥5% NON RÉCUPÉRÉS · KAPLAN-MEIER</span></div>
+      <div class="surv"><div class="sc" style="position:relative;min-width:0"><canvas id="cv-surv"></canvas></div><div class="sstats" id="sstats"></div></div>
+    </div>
+  </section>
+
+  <section class="row r3">
+    <div class="panel" id="p-aurora">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">▚</i>ORDER FLOW AURORA · <em>TAPE PRESSURE</em></span>
+        <span class="badges"><b class="bdg g" id="aCvd">CVD —</b><b class="bdg a" id="aReg">REGIME —</b><button class="info" data-info="aurora" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>PRESSION ACHETEUR ↑ · VENDEUR ↓ · CLV × VOLUME · QQQ 200J</span><span style="color:var(--cyan)" id="aEr">ER —</span></div>
+      <div style="position:relative;flex:1;min-height:0"><canvas id="cv-aurora"></canvas></div>
+    </div>
+    <div class="panel" id="p-mem">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">≋</i>BOOK MEMBRANE · <em>MOMENTUM FIELD</em></span>
+        <span class="badges"><b class="bdg a" id="mAlign">ALIGN —</b><b class="bdg g" id="mState">STATE —</b><button class="info" data-info="mem" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>16 HORIZONS × 150J · Z-SCORE DU RENDEMENT · NAPPE ÉLASTIQUE</span><b id="mDrive">—</b></div>
+      <div style="position:relative;flex:1;min-height:0"><canvas id="cv-mem"></canvas></div>
+    </div>
+  </section>
+
+  <section class="row r4">
+    <div class="panel vtxp" id="p-vortex">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">◆</i>PHASE VORTEX · <em>COHERENCE FIELD</em></span>
+        <span class="badges"><b class="bdg a" id="vK">K —</b><b class="bdg g" id="vSync">SYNC —</b><button class="info" data-info="vortex" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>22 MARCHÉS · CHAMP DE PHASE KURAMOTO (HILBERT D'EHLERS)</span><b id="vSynced" style="color:var(--green)">—</b></div>
+      <div class="vtx">
+        <div class="vlist" id="vL"></div>
+        <div class="vcanvas"><canvas id="cv-vortex"></canvas></div>
+        <div class="vlist r" id="vR"></div>
+        <div class="vinfo" id="vInfo"></div>
+      </div>
+    </div>
+    <div class="panel ruinp" id="p-ruin">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">◆</i>RUIN CONE · <em>FORWARD MONTE CARLO</em></span>
+        <span class="badges"><b class="bdg g" id="rP">P(RUIN) —</b><button class="info" data-info="ruin" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span id="rStats">—</span><span class="gtools"><button class="chip" id="rResample" title="Relancer 1 000 trajectoires">↻ RESAMPLE</button><button class="chip on" data-h="252">1Y</button><button class="chip" data-h="756">3Y</button></span></div>
+      <div class="ruinc"><canvas id="cv-ruin"></canvas></div>
+    </div>
+  </section>
+
+  <div class="agent" id="agent">
+    <span class="pr">&gt; AGENT</span>
+    <span class="msg" id="agentMsg"></span>
+    <form id="askForm" autocomplete="off" hidden>
+      <input id="askIn" placeholder="Demande à Claude : faut-il rester long ?" aria-label="Question à Claude">
+      <button type="submit">ASK ›</button>
+    </form>
+  </div>
+  <div class="answer" id="answer" hidden><button class="x" id="ansX" aria-label="Fermer">×</button><div id="ansTxt"></div></div>
+
+  <section class="row r5">
+    <div class="panel" id="p-analog">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">◫</i>ANALOG MATCHER · <em>K-NN · SEEN THIS BEFORE</em></span>
+        <span class="badges"><b class="bdg a" id="aDtw">DTW —</b><b class="bdg g" id="aScan">SCAN —</b><button class="info" data-info="analog" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="ana"><div class="ac"><canvas id="cv-analog"></canvas></div><div class="astats" id="astats"></div></div>
+    </div>
+    <div class="panel" id="p-bayes">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">~</i>BAYESIAN UPDATE · <em>P(UP 21J)</em></span>
+        <span class="badges"><b class="bdg a" id="bEv">EV —</b><b class="bdg a" id="bEdge">EDGE —</b><button class="info" data-info="bayes" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span id="bSub">—</span><b id="bUpd">—</b></div>
+      <div class="bay"><div class="bc" style="position:relative;min-width:0"><canvas id="cv-bayes"></canvas></div><div class="bev" id="bev"></div></div>
+      <div class="bfoot" id="bfoot"></div>
+    </div>
+  </section>
+
+  <div class="foot"><span class="tag">HUNTER · ONLINE</span><div class="tape-in" id="foot"></div></div>
+  <div class="src" id="src"></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Console de backtest">
+  <div class="dh"><b>BACKTEST CONSOLE</b><button id="closeBT">FERMER ✕</button></div>
+  <div class="dbody">
+    <div class="dsec">
+      <h5>STRATÉGIE</h5>
+      <select id="fStrat"></select>
+      <div class="sdesc" id="fDesc"></div>
+    </div>
+    <div class="dsec">
+      <h5>PARAMÈTRES</h5>
+      <div class="fgrid">
+        <label id="lN">LONGUEUR N<input id="fN" type="number" min="2" max="400" step="1"></label>
+        <label id="lFast">RAPIDE / SORTIE<input id="fFast" type="number" min="2" max="200" step="1"></label>
+        <label id="lBand">BANDE ± %<input id="fBand" type="number" min="0" max="10" step="0.25"></label>
+        <label id="lTv">VOL CIBLE %<input id="fTv" type="number" min="5" max="80" step="1"></label>
+        <label>LEVIER<select id="fLev"><option value="1">1× (QQQ)</option><option value="2">2× (QLD)</option><option value="3">3× (TQQQ)</option></select></label>
+        <label>EXÉCUTION<select id="fExec"><option value="close">Clôture (MOC −5 min)</option><option value="open">Ouverture J+1</option></select></label>
+        <label>DÉBUT<input id="fStart" type="date" min="2017-01-01" max="2026-01-01"></label>
+        <label>CAPITAL $<input id="fCap" type="number" min="100" step="100"></label>
+      </div>
+    </div>
+    <div class="dsec">
+      <h5>COÛTS &amp; FINANCEMENT</h5>
+      <div class="fgrid">
+        <label>FRAIS (BP / ORDRE)<input id="fFee" type="number" min="0" max="100" step="0.5"></label>
+        <label>SLIPPAGE (BP)<input id="fSlip" type="number" min="0" max="100" step="0.5"></label>
+        <label>SPREAD FINANCEMENT %<input id="fSpread" type="number" min="0" max="5" step="0.05"></label>
+        <label>FRAIS ETF %/AN<input id="fEr" type="number" min="0" max="3" step="0.01"></label>
+        <label class="full">CASH RÉMUNÉRÉ HORS MARCHÉ<select id="fCash"><option value="1">Oui (taux Fed approx.)</option><option value="0">Non (0 %)</option></select></label>
+      </div>
+    </div>
+    <div class="dsec">
+      <h5>RISQUE</h5>
+      <div class="fgrid">
+        <label>SEUIL DE RUINE (DD %)<input id="fRuin" type="number" min="10" max="95" step="5"></label>
+        <label>BLOC BOOTSTRAP (J)<input id="fBlock" type="number" min="1" max="120" step="1"></label>
+      </div>
+    </div>
+    <div class="run"><button class="go" id="runBT">▶ RUN BACKTEST</button><button class="rs" id="resetBT">RESET</button></div>
+    <div class="dsec"><h5>RÉSULTATS</h5><div id="dRes"></div></div>
+    <div class="dsec"><h5>ANNÉE PAR ANNÉE</h5><div id="dYear"></div></div>
+    <div class="dsec"><h5>DERNIERS TRADES</h5><div id="dTrades"></div></div>
+    <div class="dsec"><h5>CLASSEMENT DES 8 STRATÉGIES</h5><div id="dLb"></div></div>
+    <p class="note" id="dNote"></p>
+  </div>
+</aside>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="mh"><div><h3 id="mTitle">—</h3><p id="mSub">—</p></div><button id="mClose">✕</button></div>
+  <div class="mb" id="mBody"></div>
+</div>
+<script>
+/* ================= CLAUDE × QUANT — quant engine (pure functions, no DOM) ================= */
+'use strict';
+
+/* Approximate effective Fed Funds rate by quarter (annual %). Used for cash yield and leveraged-ETF financing. */
+const RF_Q = {
+  '2016Q3': .40, '2016Q4': .41, '2017Q1': .70, '2017Q2': .95, '2017Q3': 1.15, '2017Q4': 1.20, '2018Q1': 1.45, '2018Q2': 1.74,
+  '2018Q3': 1.92, '2018Q4': 2.22, '2019Q1': 2.40, '2019Q2': 2.40, '2019Q3': 2.15, '2019Q4': 1.64, '2020Q1': 1.26,
+  '2020Q2': .06, '2020Q3': .09, '2020Q4': .09, '2021Q1': .08, '2021Q2': .07, '2021Q3': .08, '2021Q4': .08,
+  '2022Q1': .12, '2022Q2': .77, '2022Q3': 2.19, '2022Q4': 3.65, '2023Q1': 4.52, '2023Q2': 4.99, '2023Q3': 5.26,
+  '2023Q4': 5.33, '2024Q1': 5.33, '2024Q2': 5.33, '2024Q3': 5.26, '2024Q4': 4.65, '2025Q1': 4.33, '2025Q2': 4.33,
+  '2025Q3': 4.29, '2025Q4': 3.89, '2026Q1': 3.64, '2026Q2': 3.62
+};
+function rfFor(d) {
+  const k = d.slice(0, 4) + 'Q' + (Math.floor((+d.slice(5, 7) - 1) / 3) + 1);
+  if (RF_Q[k] != null) return RF_Q[k];
+  return d < '2016' ? .4 : 3.6; // after the table: last known level
+}
+
+const U = {
+  sma(a, n) { const o = new Float64Array(a.length).fill(NaN); let s = 0, k = 0;
+    for (let i = 0; i < a.length; i++) { s += a[i]; k++; if (k > n) s -= a[i - n]; if (k >= n) o[i] = s / n; } return o; },
+  ema(a, n, start = 0) { const o = new Float64Array(a.length).fill(NaN); const k = 2 / (n + 1); let e = NaN;
+    for (let i = start; i < a.length; i++) { const v = a[i]; if (!isFinite(v)) continue; e = isFinite(e) ? v * k + e * (1 - k) : v; o[i] = e; } return o; },
+  rsi(c, n) { const o = new Float64Array(c.length).fill(NaN); let ag = 0, al = 0;
+    for (let i = 1; i < c.length; i++) { const ch = c[i] - c[i - 1], g = ch > 0 ? ch : 0, l = ch < 0 ? -ch : 0;
+      if (i <= n) { ag += g / n; al += l / n; if (i === n) o[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al); }
+      else { ag = (ag * (n - 1) + g) / n; al = (al * (n - 1) + l) / n; o[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al); } }
+    return o; },
+  rollStd(r, n) { const o = new Float64Array(r.length).fill(NaN); let s = 0, s2 = 0;
+    for (let i = 0; i < r.length; i++) { s += r[i]; s2 += r[i] * r[i]; if (i >= n) { s -= r[i - n]; s2 -= r[i - n] * r[i - n]; }
+      if (i >= n) { const m = s / n; o[i] = Math.sqrt(Math.max(0, (s2 / n - m * m) * n / (n - 1))); } } return o; },
+  rollMax(a, n) { const o = new Float64Array(a.length); for (let i = 0; i < a.length; i++) { let m = -Infinity; for (let j = Math.max(0, i - n + 1); j <= i; j++) if (a[j] > m) m = a[j]; o[i] = m; } return o; },
+  mean(a) { let s = 0; for (const v of a) s += v; return s / a.length; },
+  std(a) { const m = U.mean(a); let s = 0; for (const v of a) s += (v - m) ** 2; return Math.sqrt(s / Math.max(1, a.length - 1)); },
+  q(sorted, p) { if (!sorted.length) return NaN; const i = (sorted.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo); },
+  clamp(v, a, b) { return Math.max(a, Math.min(b, v)); },
+  rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; },
+  hash(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16).padStart(8, '0'); },
+  lgamma(x) { const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, .1208650973866179e-2, -.5395239384953e-5];
+    let y = x, t = x + 5.5; t -= (x + .5) * Math.log(t); let s = 1.000000000190015; for (const c of g) s += c / ++y; return -t + Math.log(2.5066282746310005 * s / x); },
+  betaPdf(p, a, b) { if (p <= 0 || p >= 1) return 0; return Math.exp((a - 1) * Math.log(p) + (b - 1) * Math.log(1 - p) + U.lgamma(a + b) - U.lgamma(a) - U.lgamma(b)); }
+};
+
+/* ---------------------------------------------------------------- market model */
+function buildMarket(H) {
+  const n = H.d.length, M = { d: H.d, o: H.o, h: H.h, l: H.l, c: H.c, v: H.v, div: H.div, n };
+  M.r = new Float64Array(n); M.lr = new Float64Array(n); M.tr = new Float64Array(n); M.tr[0] = 1;
+  for (let i = 1; i < n; i++) { M.r[i] = (H.c[i] + (H.div[i] || 0)) / H.c[i - 1] - 1; M.lr[i] = Math.log(1 + M.r[i]); M.tr[i] = M.tr[i - 1] * (1 + M.r[i]); }
+  M.rf = Float64Array.from(H.d, rfFor);
+  M.sma20 = U.sma(H.c, 20); M.sma50 = U.sma(H.c, 50); M.sma200 = U.sma(H.c, 200);
+  M.rsi14 = U.rsi(H.c, 14);
+  const sd = U.rollStd(M.lr, 20); M.vol20 = sd.map(v => v * Math.sqrt(252));
+  M.hi252 = U.rollMax(H.c, 252);
+  M.mom63 = new Float64Array(n).fill(NaN); for (let i = 63; i < n; i++) M.mom63[i] = M.tr[i] / M.tr[i - 63] - 1;
+  M.er20 = new Float64Array(n).fill(NaN);
+  for (let i = 20; i < n; i++) { let p = 0; for (let j = i - 19; j <= i; j++) p += Math.abs(H.c[j] - H.c[j - 1]); M.er20[i] = p > 0 ? Math.abs(H.c[i] - H.c[i - 20]) / p : 0; }
+  return M;
+}
+
+/* ---------------------------------------------------------------- strategies */
+const STRATS = {
+  sma:   { name: 'SMA200 · LEVIER', short: 'SMA', d: { n: 200, band: 0 }, uses: ['n', 'band'],
+           desc: "Ton algo : long (avec levier) quand QQQ clôture au-dessus de sa SMA N, cash sinon. La bande ± % évite les allers-retours quand le prix colle à la moyenne." },
+  smavt: { name: 'TREND × VOL TARGET', short: 'TVT', d: { n: 200, band: 0, tv: 35 }, uses: ['n', 'band', 'tv'],
+           desc: "Filtre SMA N, puis taille de position = vol cible / (levier × vol réalisée 20 j). Réduit l'exposition quand la volatilité explose." },
+  cross: { name: 'GOLDEN CROSS', short: 'GX', d: { n: 200, fast: 50 }, uses: ['n', 'fast'],
+           desc: "Long quand la SMA rapide est au-dessus de la SMA lente (50/200 par défaut)." },
+  donch: { name: 'DONCHIAN BREAKOUT', short: 'DON', d: { n: 55, fast: 20 }, uses: ['n', 'fast'],
+           desc: "Entrée sur plus haut de N jours, sortie sur plus bas de « rapide » jours (tortues)." },
+  mom:   { name: 'ABS MOMENTUM', short: 'MOM', d: { n: 252 }, uses: ['n'],
+           desc: "Fin de mois : long si le rendement total sur N jours bat le cash, sinon cash." },
+  rsi2:  { name: 'RSI(2) MEAN-REV', short: 'RSI', d: { n: 200 }, uses: ['n'],
+           desc: "Achète les replis (RSI2 < 10) en tendance haussière (prix > SMA N), sort au-dessus de la SMA5 ou après 10 jours." },
+  vt:    { name: 'VOL TARGET', short: 'VT', d: { tv: 25 }, uses: ['tv'],
+           desc: "Toujours investi, exposition = vol cible / (levier × vol réalisée 20 j), plafonnée à 100 %." },
+  bh:    { name: 'BUY & HOLD', short: 'B&H', d: {}, uses: [],
+           desc: "Référence : investi en permanence avec le levier choisi." }
+};
+const DEFAULT_P = { strat: 'sma', n: 200, fast: 50, band: 0, tv: 35, lev: 3, exec: 'close', fee: 1, slip: 2, spread: .5, er: .84,
+                    cash: 1, cap: 10000, start: '2017-11-01', ruin: 50, block: 20 };
+
+function warmup(P) {
+  switch (P.strat) { case 'sma': case 'smavt': case 'cross': return Math.max(P.n, P.fast || 0) + 1;
+    case 'donch': return Math.max(P.n, P.fast) + 1; case 'mom': return P.n + 1; case 'rsi2': return Math.max(P.n, 5) + 1;
+    case 'vt': return 22; default: return 1; }
+}
+
+function signals(M, P) {
+  const n = M.n, c = M.c, e = new Float64Array(n), S = P.strat;
+  if (S === 'bh') { e.fill(1); return e; }
+  const vtLevel = (i, cur) => { const v = M.vol20[i]; if (!isFinite(v) || v <= 0) return cur; const t = Math.min(1, (P.tv / 100) / (P.lev * v));
+    const r = Math.round(t * 20) / 20; return Math.abs(r - cur) >= .1 || (r === 1 && cur < 1 && cur > .85) ? r : cur; };
+  if (S === 'sma' || S === 'smavt') {
+    const s = U.sma(c, P.n), b = P.band / 100; let inn = false, lvl = 1;
+    for (let i = 0; i < n; i++) {
+      if (!isFinite(s[i])) { e[i] = 0; continue; }
+      if (!inn && c[i] > s[i] * (1 + b)) inn = true; else if (inn && c[i] < s[i] * (1 - b)) inn = false;
+      if (S === 'smavt') { lvl = vtLevel(i, inn ? lvl : 1); e[i] = inn ? lvl : 0; } else e[i] = inn ? 1 : 0;
+    }
+    return e;
+  }
+  if (S === 'cross') { const f = U.sma(c, P.fast), s = U.sma(c, P.n); for (let i = 0; i < n; i++) e[i] = isFinite(s[i]) && f[i] > s[i] ? 1 : 0; return e; }
+  if (S === 'donch') {
+    let inn = false; for (let i = 0; i < n; i++) {
+      if (i < Math.max(P.n, P.fast)) continue;
+      let hi = -Infinity, lo = Infinity; for (let j = i - P.n; j < i; j++) if (M.h[j] > hi) hi = M.h[j];
+      for (let j = i - P.fast; j < i; j++) if (M.l[j] < lo) lo = M.l[j];
+      if (!inn && c[i] > hi) inn = true; else if (inn && c[i] < lo) inn = false; e[i] = inn ? 1 : 0;
+    } return e;
+  }
+  if (S === 'mom') {
+    let inn = false; for (let i = 0; i < n; i++) {
+      const eom = i === n - 1 || M.d[i].slice(0, 7) !== M.d[i + 1].slice(0, 7);
+      if (eom && i > P.n) { const ret = M.tr[i] / M.tr[i - P.n] - 1; let rfc = 0; for (let j = i - P.n + 1; j <= i; j++) rfc += M.rf[j] / 100 / 252; inn = ret > rfc; }
+      e[i] = inn ? 1 : 0;
+    } return e;
+  }
+  if (S === 'rsi2') {
+    const r2 = U.rsi(c, 2), s = U.sma(c, P.n), s5 = U.sma(c, 5); let inn = false, k = 0;
+    for (let i = 0; i < n; i++) {
+      if (!isFinite(s[i])) continue;
+      if (!inn) { if (r2[i] < 10 && c[i] > s[i]) { inn = true; k = 0; } }
+      else { k++; if (c[i] > s5[i] || k >= 10) inn = false; }
+      e[i] = inn ? 1 : 0;
+    } return e;
+  }
+  if (S === 'vt') { let cur = 0; for (let i = 0; i < n; i++) { cur = vtLevel(i, cur || 1); e[i] = isFinite(M.vol20[i]) ? cur : 0; } return e; }
+  return e;
+}
+
+function runBacktest(M, P) {
+  const t0 = performance.now(), n = M.n, c = M.c, o = M.o, L = +P.lev, cst = (+P.fee + +P.slip) / 1e4;
+  const sig = signals(M, P);
+  let s0 = M.d.findIndex(d => d >= P.start); if (s0 < 0) s0 = 0; s0 = Math.max(s0, warmup(P)); s0 = Math.min(s0, n - 30);
+  const s1 = n - 1;
+  const eq = new Float64Array(n).fill(NaN), bh = new Float64Array(n).fill(NaN), bh3 = new Float64Array(n).fill(NaN), ex = new Float64Array(n);
+  eq[s0] = bh[s0] = bh3[s0] = +P.cap;
+  let e = P.exec === 'open' ? 0 : sig[s0]; eq[s0] *= 1 - e * cst; ex[s0] = e;
+  const trades = []; let open = e > 0 ? { i: s0, eq: eq[s0], px: c[s0] } : null; let nOrders = e > 0 ? 1 : 0;
+  const book = (i, from, to, v, px) => {
+    nOrders++;
+    if (from === 0 && to > 0) open = { i, eq: v, px };
+    else if (from > 0 && to === 0 && open) { trades.push({ i0: open.i, i1: i, ret: v / open.eq - 1, days: i - open.i, px0: open.px, px1: px }); open = null; }
+  };
+  for (let i = s0 + 1; i <= s1; i++) {
+    const rf = M.rf[i] / 100, cashR = +P.cash ? rf / 252 : 0;
+    const carry = ((L - 1) * (rf + P.spread / 100) + (L > 1 ? P.er / 100 : .002)) / 252;
+    const carry3 = (2 * (rf + P.spread / 100) + P.er / 100) / 252;
+    bh[i] = bh[i - 1] * (1 + M.r[i]); bh3[i] = bh3[i - 1] * (1 + 3 * M.r[i] - carry3);
+    let v = eq[i - 1];
+    if (P.exec === 'open') {
+      const ron = o[i] / c[i - 1] - 1, rid = (c[i] + (M.div[i] || 0)) / o[i] - 1;
+      v *= 1 + e * (L * ron - carry / 2) + (1 - e) * cashR / 2;
+      const ne = sig[i - 1]; if (ne !== e) { v *= 1 - Math.abs(ne - e) * cst; book(i, e, ne, v, o[i]); e = ne; }
+      v *= 1 + e * (L * rid - carry / 2) + (1 - e) * cashR / 2;
+    } else {
+      v *= 1 + e * (L * M.r[i] - carry) + (1 - e) * cashR;
+      const ne = sig[i]; if (ne !== e) { v *= 1 - Math.abs(ne - e) * cst; book(i, e, ne, v, c[i]); e = ne; }
+    }
+    eq[i] = Math.max(v, 1e-9); ex[i] = e;
+  }
+  const st = stats(eq, s0, s1, M);
+  const closed = trades.filter(t => isFinite(t.ret)); const wins = closed.filter(t => t.ret > 0), losses = closed.filter(t => t.ret <= 0);
+  const avgW = wins.length ? U.mean(wins.map(t => t.ret)) : 0, avgL = losses.length ? U.mean(losses.map(t => t.ret)) : 0;
+  st.trades = closed.length + (open ? 1 : 0); st.closed = closed.length; st.orders = nOrders;
+  st.win = closed.length ? wins.length / closed.length : NaN;
+  st.rr = avgL < 0 ? avgW / -avgL : (wins.length ? Infinity : NaN);
+  st.pf = losses.length ? wins.reduce((a, t) => a + t.ret, 0) / -losses.reduce((a, t) => a + t.ret, 0) : Infinity;
+  let expo = 0; for (let i = s0; i <= s1; i++) expo += ex[i] > 0 ? 1 : 0; st.expo = expo / (s1 - s0 + 1);
+  st.lastDay = eq[s1] - eq[s1 - 1];
+  const res = { P: { ...P }, sig, eq, bh, bh3, ex, s0, s1, trades, open: open ? { ...open, ret: eq[s1] / open.eq - 1, days: s1 - open.i } : null,
+    st, stB: stats(bh, s0, s1, M), stB3: stats(bh3, s0, s1, M), ms: performance.now() - t0 };
+  res.id = '0x' + U.hash(JSON.stringify(P)).slice(0, 2) + '…' + U.hash(JSON.stringify(P) + 'x').slice(-4) + '-' + Date.parse(M.d[s1] + 'T20:00:00Z');
+  return res;
+}
+
+function stats(eq, s0, s1, M) {
+  const N = s1 - s0, rets = new Float64Array(N), ex = new Float64Array(N);
+  for (let k = 0; k < N; k++) { rets[k] = eq[s0 + k + 1] / eq[s0 + k] - 1; ex[k] = rets[k] - M.rf[s0 + k + 1] / 100 / 252; }
+  const years = N / 252, total = eq[s1] / eq[s0] - 1, cagr = Math.pow(eq[s1] / eq[s0], 1 / years) - 1;
+  const sd = U.std(rets), mex = U.mean(ex);
+  let dsum = 0, dn = 0; for (const x of ex) { if (x < 0) { dsum += x * x; } dn++; }
+  const dsd = Math.sqrt(dsum / Math.max(1, dn));
+  let peak = eq[s0], mdd = 0, mddI = s0, curDur = 0, maxDur = 0;
+  const dd = new Float64Array(eq.length).fill(NaN);
+  for (let i = s0; i <= s1; i++) { if (eq[i] >= peak) { peak = eq[i]; curDur = 0; } else curDur++; maxDur = Math.max(maxDur, curDur); dd[i] = eq[i] / peak - 1; if (dd[i] < mdd) { mdd = dd[i]; mddI = i; } }
+  const yearly = {}; let prevEnd = eq[s0];
+  for (let i = s0 + 1; i <= s1; i++) { const y = M.d[i].slice(0, 4); const last = i === s1 || M.d[i + 1].slice(0, 4) !== y; if (last) { yearly[y] = eq[i] / prevEnd - 1; prevEnd = eq[i]; } }
+  return { total, cagr, vol: sd * Math.sqrt(252), sharpe: sd > 0 ? mex / sd * Math.sqrt(252) : 0, sortino: dsd > 0 ? mex / dsd * Math.sqrt(252) : 0,
+    mdd, mddI, maxDur, ddNow: dd[s1], dd, calmar: mdd < 0 ? cagr / -mdd : Infinity, yearly, rets, years, final: eq[s1] };
+}
+
+function leaderboard(M, P) {
+  return Object.keys(STRATS).map(k => { const p = { ...P, ...STRATS[k].d, strat: k }; const r = runBacktest(M, p);
+    return { k, name: STRATS[k].name, sharpe: r.st.sharpe, cagr: r.st.cagr, mdd: r.st.mdd, final: r.st.final, calmar: r.st.calmar, trades: r.st.trades }; })
+    .sort((a, b) => b.sharpe - a.sharpe);
+}
+
+/* ---------------------------------------------------------------- drawdown survival (Kaplan-Meier) */
+function ddEpisodes(eq, s0, s1, minDepth = .05) {
+  const eps = []; let peak = eq[s0], pi = s0, depth = 0, inDD = false;
+  for (let i = s0 + 1; i <= s1; i++) {
+    if (eq[i] >= peak) { if (inDD && depth >= minDepth) eps.push({ s: pi, e: i, dur: i - pi, depth, cens: false }); inDD = false; peak = eq[i]; pi = i; depth = 0; }
+    else { inDD = true; depth = Math.max(depth, 1 - eq[i] / peak); }
+  }
+  if (inDD && depth >= minDepth) eps.push({ s: pi, e: s1, dur: s1 - pi, depth, cens: true });
+  return eps;
+}
+function kaplanMeier(eps) {
+  const ts = [...new Set(eps.filter(e => !e.cens).map(e => e.dur))].sort((a, b) => a - b); let S = 1; const out = [{ t: 0, S: 1 }];
+  for (const t of ts) { const atRisk = eps.filter(e => e.dur >= t).length, d = eps.filter(e => !e.cens && e.dur === t).length; if (atRisk) S *= 1 - d / atRisk; out.push({ t, S }); }
+  return out;
+}
+function kmQuantile(curve, q) { for (const p of curve) if (p.S <= 1 - q) return p.t; return Infinity; }
+
+/* ---------------------------------------------------------------- Monte Carlo (stationary block bootstrap) */
+function monteCarlo(rets, { H = 252, N = 1000, block = 20, ruin = .5, seed = 7, keep = 240 } = {}) {
+  const t0 = performance.now(), rng = U.rng(seed), L = rets.length, B = Math.max(1, Math.min(block, L - 1));
+  const stride = 3, S = Math.floor(H / stride) + 1, grid = new Float32Array(N * S), term = new Float64Array(N), ruinF = new Uint8Array(N), paths = [];
+  let ruined = 0;
+  for (let p = 0; p < N; p++) {
+    let v = 1, peak = 1, ru = 0, pos = 0; const path = p < keep ? new Float32Array(H + 1) : null; if (path) path[0] = 1; grid[p * S] = 1;
+    for (let t = 0; t < H; t++) {
+      if (t % B === 0) pos = Math.floor(rng() * (L - B));
+      v *= 1 + rets[pos + (t % B)]; if (v > peak) peak = v; if (!ru && v / peak <= 1 - ruin) ru = 1;
+      if (path) path[t + 1] = v; if ((t + 1) % stride === 0) grid[p * S + (t + 1) / stride] = v;
+    }
+    term[p] = v; ruinF[p] = ru; ruined += ru; if (path) paths.push(path);
+  }
+  const bands = []; const col = new Float64Array(N);
+  for (let s = 0; s < S; s++) { for (let p = 0; p < N; p++) col[p] = grid[p * S + s]; const so = Array.from(col).sort((a, b) => a - b);
+    bands.push({ t: s * stride, q05: U.q(so, .05), q25: U.q(so, .25), q50: U.q(so, .5), q75: U.q(so, .75), q95: U.q(so, .95) }); }
+  const ts = Array.from(term).sort((a, b) => a - b);
+  return { paths, ruinF, term, ts, pRuin: ruined / N, bands, H, N, ms: performance.now() - t0,
+    med: U.q(ts, .5), p05: U.q(ts, .05), p95: U.q(ts, .95), pLoss: ts.filter(x => x < 1).length / N };
+}
+
+/* ---------------------------------------------------------------- Ehlers Hilbert phase + Kuramoto order parameter */
+function ehlersPhase(lp) {
+  const n = lp.length, ph = new Float64Array(n).fill(NaN); let st = 0; while (st < n && !isFinite(lp[st])) st++;
+  const e1 = U.ema(lp, 10, st), e2 = U.ema(lp, 40, st), x = new Float64Array(n).fill(NaN);
+  for (let i = st; i < n; i++) x[i] = e1[i] - e2[i];
+  for (let i = st + 46; i < n; i++) { const Q = .0962 * x[i] + .5769 * x[i - 2] - .5769 * x[i - 4] - .0962 * x[i - 6], I = x[i - 3]; ph[i] = Math.atan2(Q, I); }
+  return ph;
+}
+function kuramoto(M, MK) {
+  const names = ['QQQ', ...Object.keys(MK)], n = M.n;
+  const series = names.map(k => k === 'QQQ' ? Array.from(M.c, Math.log) : MK[k].map(v => v == null ? NaN : Math.log(v)));
+  const phases = series.map(ehlersPhase);
+  const R = new Float64Array(n).fill(NaN), PSI = new Float64Array(n).fill(NaN);
+  for (let i = 0; i < n; i++) { let cs = 0, sn = 0, k = 0; for (const ph of phases) if (isFinite(ph[i])) { cs += Math.cos(ph[i]); sn += Math.sin(ph[i]); k++; }
+    if (k >= 10) { R[i] = Math.hypot(cs, sn) / k; PSI[i] = Math.atan2(sn, cs); } }
+  const last = n - 1, psi = PSI[last];
+  const lr = series.map(s => { const o = []; for (let i = n - 60; i < n; i++) o.push(s[i] - s[i - 1]); return o; });
+  let csum = 0, cn = 0;
+  for (let a = 0; a < lr.length; a++) for (let b = a + 1; b < lr.length; b++) {
+    const x = lr[a], y = lr[b]; if (x.some(v => !isFinite(v)) || y.some(v => !isFinite(v))) continue;
+    const mx = U.mean(x), my = U.mean(y); let sxy = 0, sx = 0, sy = 0; for (let i = 0; i < x.length; i++) { sxy += (x[i] - mx) * (y[i] - my); sx += (x[i] - mx) ** 2; sy += (y[i] - my) ** 2; }
+    if (sx > 0 && sy > 0) { csum += sxy / Math.sqrt(sx * sy); cn++; } }
+  const mk = names.map((k, j) => { const th = phases[j][last]; const s = series[j];
+    return { k, th, align: isFinite(th) ? Math.cos(th - psi) : NaN, ret1: Math.exp(s[last] - s[last - 1]) - 1, ret5: Math.exp(s[last] - s[last - 5]) - 1 }; })
+    .filter(m => isFinite(m.align));
+  const locked = mk.filter(m => m.align > Math.SQRT1_2).length;
+  const imp = mk.slice().sort((a, b) => Math.abs(b.ret1) - Math.abs(a.ret1))[0];
+  return { R, PSI, r: R[last], psi, K: cn ? csum / cn : NaN, mk, locked, imp, hist: Array.from(R.slice(n - 30)) };
+}
+
+/* ---------------------------------------------------------------- analog matcher (z-normalised k-NN + DTW refine) */
+function dtw(a, b, band) {
+  const n = a.length, INF = 1e18; let prev = new Float64Array(n + 1).fill(INF), cur = new Float64Array(n + 1).fill(INF); prev[0] = 0;
+  for (let i = 1; i <= n; i++) { cur.fill(INF); const lo = Math.max(1, i - band), hi = Math.min(n, i + band);
+    for (let j = lo; j <= hi; j++) { const c = Math.abs(a[i - 1] - b[j - 1]); cur[j] = c + Math.min(prev[j], prev[j - 1], cur[j - 1]); } [prev, cur] = [cur, prev]; }
+  return prev[n] / n;
+}
+function zn(a) { const m = U.mean(a); let s = 0; for (const v of a) s += (v - m) ** 2; s = Math.sqrt(s / a.length) || 1; return a.map(v => (v - m) / s); }
+function analogMatch(M, MK, { W = 64, H = 26, K = 6 } = {}) {
+  const t0 = performance.now(), n = M.n;
+  const libs = [{ k: 'QQQ', a: Array.from(M.c, Math.log) }, ...Object.keys(MK).map(k => ({ k, a: MK[k].map(v => v == null ? NaN : Math.log(v)) }))];
+  const cur = libs[0].a.slice(n - W), zc = zn(cur), sdCur = Math.sqrt(U.mean(cur.map(v => (v - U.mean(cur)) ** 2)));
+  const cand = []; let scanned = 0, thr = -1; const corrHist = new Uint32Array(40); const bar = [];
+  for (const L of libs) {
+    const a = L.a, len = a.length, P1 = new Float64Array(len + 1), P2 = new Float64Array(len + 1);
+    for (let i = 0; i < len; i++) { const v = isFinite(a[i]) ? a[i] : 0; P1[i + 1] = P1[i] + v; P2[i + 1] = P2[i] + v * v; }
+    let first = 0; while (first < len && !isFinite(a[first])) first++;
+    const lastEnd = L.k === 'QQQ' ? n - W - H - 1 : len - 1 - H;
+    for (let e = first + W - 1; e <= lastEnd; e++) {
+      const s = e - W + 1, m = (P1[e + 1] - P1[s]) / W, vr = (P2[e + 1] - P2[s]) / W - m * m; if (vr <= 1e-12) continue;
+      let dot = 0; for (let k = 0; k < W; k++) dot += zc[k] * a[s + k];
+      const corr = dot / (W * Math.sqrt(vr)); scanned++;
+      corrHist[Math.min(39, Math.max(0, Math.floor((corr + 1) * 20)))]++;
+      if (L.k === 'QQQ') bar.push(corr);
+      if (corr > thr) { cand.push({ k: L.k, e, corr, sd: Math.sqrt(vr), lib: L }); if (cand.length > 160) { cand.sort((x, y) => y.corr - x.corr); cand.length = 120; thr = cand[cand.length - 1].corr; } }
+    }
+  }
+  cand.sort((x, y) => y.corr - x.corr);
+  for (const c of cand) { c.z = zn(c.lib.a.slice(c.e - W + 1, c.e + 1)); c.dtw = dtw(zc, c.z, 6); }
+  cand.sort((x, y) => x.dtw - y.dtw);
+  const pick = [];
+  for (const c of cand) { if (pick.some(p => p.k === c.k && Math.abs(p.e - c.e) < 20)) continue; pick.push(c); if (pick.length === K) break; }
+  for (const p of pick) {
+    const a = p.lib.a, sc = sdCur / p.sd;
+    p.fwd = []; for (let j = 0; j <= H; j++) p.fwd.push(Math.exp((a[p.e + j] - a[p.e]) * sc) - 1);
+    p.date = (p.k === 'QQQ' || true) ? M.d[p.e] : '';
+    p.final = p.fwd[H]; delete p.lib;
+  }
+  const finals = pick.map(p => p.final).sort((a, b) => a - b);
+  const up = finals.filter(x => x > 0).length;
+  const curPct = cur.map(v => Math.exp(v - cur[W - 1]) - 1);
+  const nb = 150, binned = []; for (let b = 0; b < nb; b++) { const lo = Math.floor(b * bar.length / nb), hi = Math.floor((b + 1) * bar.length / nb); let mx = -1; for (let i = lo; i < hi; i++) mx = Math.max(mx, bar[i]); binned.push(mx); }
+  return { W, H, K, zc, curPct, sdCur, pick, up, down: pick.length - up, median: U.q(finals, .5), target: U.q(finals, .8), stop: U.q(finals, .2),
+    match: Math.max(...pick.map(p => p.corr)), dtwBest: Math.min(...pick.map(p => p.dtw)), scanned, ms: performance.now() - t0, corrHist: Array.from(corrHist), barcode: binned };
+}
+
+/* ---------------------------------------------------------------- Bayesian update (tempered naive Bayes) */
+function bayes(M, R, Hf = 21) {
+  const n = M.n;
+  const F = [
+    { k: 'PRICE > SMA200', f: i => M.c[i] > M.sma200[i] },
+    { k: 'SMA50 > SMA200', f: i => M.sma50[i] > M.sma200[i] },
+    { k: 'MOMENTUM 3M > 0', f: i => M.mom63[i] > 0 },
+    { k: 'VOL 20J < 20%', f: i => M.vol20[i] < .20 },
+    { k: 'RSI14 > 70', f: i => M.rsi14[i] > 70 },
+    { k: 'DD 52S > −5%', f: i => M.c[i] / M.hi252[i] - 1 > -.05 },
+    { k: 'SYNC R > 0.6', f: i => R[i] > .6 },
+    { k: 'EFFICIENCY > 0.3', f: i => M.er20[i] > .3 }
+  ];
+  const i0 = 260, i1 = n - 1 - Hf, Y = [], X = [], fwd = [];
+  for (let i = i0; i <= i1; i++) { const r = M.tr[i + Hf] / M.tr[i] - 1; fwd.push(r); Y.push(r > 0 ? 1 : 0); X.push(F.map(ft => ft.f(i) ? 1 : 0)); }
+  const T = Y.length, up = Y.reduce((a, b) => a + b, 0), dn = T - up, p0 = up / T;
+  const cnt = F.map((_, k) => { let u1 = 0, d1 = 0; for (let t = 0; t < T; t++) if (X[t][k]) { if (Y[t]) u1++; else d1++; } return { u1, d1, u0: up - u1, d0: dn - d1 }; });
+  const llr = (k, v) => { const c = cnt[k]; return v ? Math.log(((c.u1 + 1) / (up + 2)) / ((c.d1 + 1) / (dn + 2))) : Math.log(((c.u0 + 1) / (up + 2)) / ((c.d0 + 1) / (dn + 2))); };
+  const lo0 = Math.log(p0 / (1 - p0)), sig = z => 1 / (1 + Math.exp(-z));
+  let bestL = 1, bestLoss = Infinity;
+  for (let lam = 0; lam <= 1.0001; lam += .05) { let loss = 0; for (let t = 0; t < T; t++) { let z = lo0; for (let k = 0; k < F.length; k++) z += lam * llr(k, X[t][k]); const p = U.clamp(sig(z), 1e-6, 1 - 1e-6); loss -= Y[t] ? Math.log(p) : Math.log(1 - p); }
+    if (loss < bestLoss) { bestLoss = loss; bestL = lam; } }
+  const lam = bestL;
+  const postAt = i => { let z = lo0; for (let k = 0; k < F.length; k++) z += lam * llr(k, F[k].f(i) ? 1 : 0); return sig(z); };
+  const last = n - 1, cur = F.map(ft => ft.f(last) ? 1 : 0);
+  const ev = F.map((ft, k) => ({ k: ft.k, v: cur[k], llr: lam * llr(k, cur[k]) }));
+  const post = postAt(last);
+  let nMatch = 0, uMatch = 0; for (let t = 0; t < T; t++) if (X[t].every((v, k) => v === cur[k])) { nMatch++; uMatch += Y[t]; }
+  const ups = fwd.filter(r => r > 0), dns = fwd.filter(r => r <= 0), avgUp = U.mean(ups), avgDn = U.mean(dns);
+  const EV = post * avgUp + (1 - post) * avgDn, b = avgUp / -avgDn, kelly = post - (1 - post) / b;
+  const kap = 40, a0 = p0 * kap, b0 = (1 - p0) * kap, kp = kap + Math.min(400, nMatch), a1 = post * kp, b1 = (1 - post) * kp;
+  const lik = nMatch >= 5 ? { a: uMatch + 1, b: nMatch - uMatch + 1 } : { a: a1, b: b1 };
+  let kl = 0; const G = 600; for (let g = 1; g < G; g++) { const p = g / G, q1 = U.betaPdf(p, a1, b1), q0 = U.betaPdf(p, a0, b0); if (q1 > 1e-12 && q0 > 1e-12) kl += q1 * Math.log(q1 / q0) / G; }
+  const hist = []; for (let i = n - 40; i < n; i++) hist.push(postAt(i));
+  return { F, ev, p0, post, lam, T, nMatch, uMatch, avgUp, avgDn, EV, kelly, a0, b0, a1, b1, lik, kl, conf: nMatch / (nMatch + 50), hist, Hf };
+}
+
+/* ---------------------------------------------------------------- tape pressure (aurora) */
+function tapePressure(M, N = 200) {
+  const n = M.n, s = n - N, out = [];
+  let cvd = 0; const vols = []; for (let i = n - N - 60; i < n; i++) vols.push(M.v[i]);
+  for (let i = s; i < n; i++) {
+    const rng = M.h[i] - M.l[i], clv = rng > 0 ? ((M.c[i] - M.l[i]) - (M.h[i] - M.c[i])) / rng : 0;
+    const buy = M.v[i] * (1 + clv) / 2, sell = M.v[i] * (1 - clv) / 2; cvd += buy - sell;
+    const win = []; for (let j = i - 60; j < i; j++) win.push(M.v[j]); const mu = U.mean(win), sd = U.std(win);
+    out.push({ i, d: M.d[i], clv, buy, sell, cvd, vz: sd > 0 ? (M.v[i] - mu) / sd : 0, er: M.er20[i], dollar: M.v[i] * M.c[i] });
+  }
+  let c20 = 0; for (let k = out.length - 20; k < out.length; k++) c20 += out[k].buy - out[k].sell;
+  return { rows: out, cvd20: c20, er: M.er20[n - 1] };
+}
+
+/* ---------------------------------------------------------------- momentum membrane */
+const HORIZONS = [2, 3, 5, 8, 13, 21, 34, 55, 75, 100, 130, 160, 190, 220, 240, 252];
+function membrane(M, T = 150) {
+  const n = M.n; const lr = []; for (let i = n - 252; i < n; i++) lr.push(M.lr[i]); const sd = U.std(lr);
+  const rows = HORIZONS.map(h => { const z = []; for (let i = n - T; i < n; i++) z.push(Math.log(M.tr[i] / M.tr[i - h]) / (sd * Math.sqrt(h))); return { h, z }; });
+  const lastZ = rows.map(r => r.z[T - 1]); const pos = lastZ.filter(z => z > 0).length;
+  const disp = U.std(lastZ), v20 = M.vol20[n - 1];
+  const v60 = U.std(Array.from(M.lr.slice(n - 60))) * Math.sqrt(252);
+  const state = v20 > .30 ? 'STRESSED' : pos / rows.length >= .8 ? 'TRENDING' : pos / rows.length <= .2 ? 'BEARISH' : disp > 1.2 ? 'TORN' : 'ELASTIC';
+  const vb = []; for (let i = n - T; i < n; i++) vb.push(M.vol20[i]);
+  return { rows, T, align: pos / rows.length, pos, disp, state, v20, v60, vb, drive: U.mean(lastZ) };
+}
+
+/* ---------------------------------------------------------------- permutation entropy (order 3) */
+function permEntropy(x) { const cnt = {}; let N = 0; for (let i = 2; i < x.length; i++) { const t = [x[i - 2], x[i - 1], x[i]]; const k = [0, 1, 2].sort((a, b) => t[a] - t[b]).join(''); cnt[k] = (cnt[k] || 0) + 1; N++; }
+  let h = 0; for (const k in cnt) { const p = cnt[k] / N; h -= p * Math.log(p); } return h / Math.log(6); }
+
+/* ---------------------------------------------------------------- BRVM model */
+function brvmModel(BR, REF) {
+  const rows = BR.rows.map(r => {
+    const f = REF.rows[r.t] || {}; const c = r.c;
+    const fresh = f.divd && f.divd >= addMonths(BR.asof, -15);
+    const yldRaw = f.div && f.divd && f.divd >= '2019-01-01' ? f.div / c * 100 : null;
+    const yld = fresh ? yldRaw : (yldRaw != null ? yldRaw : null);
+    const per = f.per && f.cref ? f.per * c / f.cref : null;
+    const base = f.ytd != null && f.cref ? f.cref / (1 + f.ytd / 100) : null;
+    const ytd = base ? (c / base - 1) * 100 : null;
+    const vj = r.vj != null ? r.vj : (r.prev ? (c / r.prev - 1) * 100 : 0);
+    return { ...r, vj, n: f.n || r.t, sec: f.sec || '—', cty: f.cty || '—', div: f.div, divd: f.divd, yld, fresh: !!fresh, per, ytd, val: c * r.vol, noTrade: r.vol === 0 };
+  });
+  const pct = (arr, v, inv) => { const s = arr.filter(x => x != null && isFinite(x)).sort((a, b) => a - b); if (v == null || !isFinite(v) || !s.length) return .5; let k = 0; while (k < s.length && s[k] <= v) k++; const p = k / s.length; return inv ? 1 - p : p; };
+  const ylds = rows.map(r => r.fresh ? Math.min(r.yld, 15) : 0), pers = rows.map(r => r.per != null && r.per > 0 && r.per < 100 ? r.per : null),
+        ytds = rows.map(r => r.ytd), liq = rows.map(r => r.val);
+  rows.forEach((r, i) => {
+    const sY = pct(ylds, ylds[i]), sV = pers[i] == null ? .15 : pct(pers, pers[i], true), sM = r.ytd == null ? .5 : pct(ytds, r.ytd), sL = pct(liq, r.val);
+    r.sc = { y: sY, v: sV, m: sM, l: sL }; r.score = Math.round(100 * (.35 * sY + .30 * sV + .20 * sM + .15 * sL));
+  });
+  const rk = rows.slice().sort((a, b) => b.score - a.score); rk.forEach((r, i) => r.rank = i + 1);
+  const upN = rows.filter(r => r.vj > 0).length, dnN = rows.filter(r => r.vj < 0).length;
+  const idx = BR.idx.map(x => { const rf = REF.idx[x.k]; const base = rf ? rf.vref / (1 + rf.ytd / 100) : null; return { ...x, ytd: base ? (x.v / base - 1) * 100 : null }; });
+  return { rows, upN, dnN, flat: rows.length - upN - dnN, idx, asof: BR.asof, session: BR.session, src: BR.src, capA: BR.capA, sectors: REF.sectors, sect: BR.sect };
+}
+function addMonths(d, m) { const [y, mo] = d.split('-').map(Number); const t = new Date(Date.UTC(y, mo - 1 + m, 1)); return t.toISOString().slice(0, 10); }
+
+</script>
+<script>
+/* ================= CLAUDE × QUANT — terminal UI ================= */
+(function () {
+'use strict';
+const $ = id => document.getElementById(id);
+const RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const C = {};
+const TRIGGER_ID = '__TRIGGER_ID__'; // scheduled task that copies the quant-data branch into this page's db (claude.ai only)
+function readPalette() { const cs = getComputedStyle(document.body);
+  for (const k of ['bg', 'panel', 'panel2', 'inset', 'line', 'line2', 'grid', 'txt', 'dim', 'dim2', 'green', 'green2', 'red', 'red2', 'amber', 'orange', 'cyan', 'magenta', 'violet', 'white']) C[k] = cs.getPropertyValue('--' + k).trim(); }
+function rgba(hex, a) { hex = hex.replace('#', ''); if (hex.length === 3) hex = hex.split('').map(x => x + x).join(''); const n = parseInt(hex, 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+const FONT = (s, w = 600) => `${w} ${s}px "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace`;
+function cv(id) { const el = $(id); if (!el) return null; const r = el.getBoundingClientRect(); const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.max(20, r.width), h = Math.max(20, r.height); const W = Math.round(w * dpr), H = Math.round(h * dpr);
+  if (el.width !== W || el.height !== H) { el.width = W; el.height = H; } const x = el.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0); return { x, w, h, el }; }
+
+/* ---------- formatting ---------- */
+const nf0 = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+const nf2 = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const usd = (v, d = 0) => (v < 0 ? '−$' : '$') + (d ? nf2 : nf0).format(Math.abs(v));
+const pct = (v, d = 1, s = true) => !isFinite(v) ? '—' : (s && v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v * 100).toFixed(d) + '%';
+const pp = (v, d = 2, s = true) => v == null || !isFinite(v) ? '—' : (s && v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d) + '%';
+const fcfa = v => v == null ? '—' : (Math.abs(v) < 100 && v % 1 !== 0) ? v.toFixed(2).replace('.', ',') : Math.round(v).toLocaleString('fr-FR').replace(/[  ]/g, ' ');
+const compact = v => { const a = Math.abs(v); return (v < 0 ? '−' : '') + (a >= 1e12 ? (a / 1e12).toFixed(2) + 'T' : a >= 1e9 ? (a / 1e9).toFixed(1) + 'B' : a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e3 ? (a / 1e3).toFixed(1) + 'K' : a.toFixed(0)); };
+const MONTHS = ['JAN', 'FÉV', 'MAR', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
+const dshort = d => d.slice(8, 10) + ' ' + MONTHS[+d.slice(5, 7) - 1];
+const dfr = d => d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4);
+const cls = v => v > 0 ? 'up' : v < 0 ? 'dn' : 'fl';
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const CTY = { CI: "Côte d'Ivoire", SN: 'Sénégal', BF: 'Burkina Faso', BJ: 'Bénin', ML: 'Mali', NE: 'Niger', TG: 'Togo' };
+
+/* ---------- state ---------- */
+const S = { P: null, tf: '1D', bars: 90, mode: 'vj', view: 'grid', sort: { k: 'score', dir: -1 }, H: 252, seed: 7, hover: null, reveal: 1, rot: 0 };
+const BARSTEPS = [40, 60, 90, 120, 180, 250, 500, 1000, 2500];
+let HIST, BRV, REF, M, MK, LIVE = null, R = {}, BR;
+const LS = { get(k) { try { return JSON.parse(localStorage.getItem('cq:' + k)); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem('cq:' + k, JSON.stringify(v)); } catch (e) { } } };
+
+/* ---------- explanations (FR) ---------- */
+const INFO = {
+  pnl: "<p><b>Résultat du backtest</b> de la stratégie active (par défaut ton algo : QQQ vs SMA200 → TQQQ simulé 3×, exécution à la clôture).</p><p>Gros chiffre = capital final. Encadré = P&L de la dernière séance et performance totale. TRADES / WIN RATE / AVG R/R (gain moyen ÷ perte moyenne) / SHARPE (net du taux sans risque).</p><p><b>DD RISK</b> = drawdown actuel rapporté à ton seuil de ruine (50 % par défaut). Le trait blanc = pire drawdown historique. Clique sur l'identifiant pour ouvrir la console.</p>",
+  chart: "<p><b>QQQ en bougies</b> (1D / 1W, et 5M quand le flux live tourne) avec SMA200 (ambre) et SMA50 (cyan). Les ▲/▼ sont les entrées/sorties de la stratégie backtestée.</p><p>La colonne de droite remplace le carnet L2 : les <b>niveaux clés</b> au-dessus (résistances, rouge) et en dessous (supports, vert) — pivots de la veille, SMA20/50/200, plus haut/bas 52 semaines — avec la distance en %. Au milieu : l'écart à la SMA200, le chiffre qui pilote ton algo.</p>",
+  grid: "<p><b>Les 48 actions BRVM</b> (Bridge Bank Group CI est la 48e). Couleur = variation du jour par défaut ; les onglets recolorent et retrient par YTD, rendement du dividende, PER ou score quant.</p><p><b>SCORE</b> = 35 % rendement + 30 % valorisation (PER bas) + 20 % momentum YTD + 15 % liquidité, en rangs centiles sur les 48 titres. Clique une case pour la fiche complète et un simulateur de dividende. TABLE = vue triable.</p><p>Rendement et PER sont recalculés au cours actuel à partir du dernier dividende net et du PER publiés au BOC.</p>",
+  surv: "<p><b>Combien de temps durent les drawdowns ?</b> Courbe de survie de Kaplan-Meier : part des drawdowns (≥ 5 %) encore non récupérés après N jours de bourse.</p><p>Vert = ta stratégie, rouge = QQQ buy & hold, orange = 3× buy & hold. P50 = durée médiane, P90 = 9 drawdowns sur 10 sont récupérés avant ce délai. Le drawdown en cours est traité comme censuré.</p>",
+  aurora: "<p><b>Pression du tape</b> sur 200 séances : chaque jour, le volume est réparti entre acheteurs et vendeurs selon où la clôture se situe dans la range (Close Location Value).</p><p>Rouge qui tombe du haut = pression vendeuse, vert qui monte = acheteuse, pics blancs = volume anormal (> 2σ). Ligne verte = CVD cumulé. Bande du bas : cyan = tendance, magenta = range/chop (efficiency ratio de Kaufman &lt; 0,3).</p>",
+  mem: "<p><b>Nappe de momentum</b> : 16 horizons (2 à 252 jours) empilés en profondeur. Chaque ligne = rendement sur l'horizon, normalisé par la volatilité (z-score), sur les 150 dernières séances.</p><p>Tout vert = momentum aligné sur tous les horizons (tendance saine). Rouge à l'avant et vert à l'arrière = repli court terme dans une tendance longue (zone d'achat classique). ALIGN = % d'horizons positifs. STATE passe à STRESSED si la vol 20 j dépasse 30 %.</p>",
+  vortex: "<p><b>Synchronisation des marchés</b> (modèle de Kuramoto). La phase du cycle de chaque marché (QQQ + 21 valeurs tech) est extraite par le transformateur de Hilbert d'Ehlers.</p><p><b>SYNC</b> = paramètre d'ordre R (0 = chacun sa vie, 100 % = tout le monde bouge ensemble). Synchro élevée = risque systémique, les corrélations montent. <b>K</b> = corrélation moyenne des rendements sur 60 j. Listes : marchés en phase / hors phase avec le champ moyen. L'aiguille pointe la phase moyenne.</p>",
+  ruin: "<p><b>Cône de ruine</b> : 1 000 futurs simulés en ré-échantillonnant par blocs de 20 jours les rendements quotidiens réels de la stratégie (bootstrap par blocs).</p><p><b>P(RUIN)</b> = probabilité de toucher, sur l'horizon, un drawdown au moins égal à ton seuil (50 % par défaut, réglable dans la console). Histogramme à droite = distribution du capital final. 1Y / 3Y pour l'horizon.</p>",
+  analog: "<p><b>« Déjà vu »</b> : on prend les 64 dernières séances de QQQ, on les normalise, et on scanne environ 50 000 fenêtres historiques (QQQ + 21 marchés) par corrélation, puis on affine les meilleures par DTW (Dynamic Time Warping).</p><p>Les 6 analogues retenus montrent <b>ce qui s'est passé ensuite</b> sur 26 séances (ajusté de la volatilité). UP / DOWN = vote. TARGET / STOP = médianes de la meilleure et de la pire excursion des analogues (MFE / MAE).</p>",
+  bayes: "<p><b>Probabilité que QQQ soit plus haut dans 21 séances.</b> Prior = fréquence historique. Chaque signal (tendance, momentum, volatilité, RSI, synchro…) ajuste la probabilité via son rapport de vraisemblance appris sur l'historique.</p><p>Les signaux sont corrélés, donc les log-odds sont tempérés par λ calibré sur l'historique. EV = espérance sur 21 j. Kelly ½ = taille de position suggérée (plafonnée). CONF dépend du nombre de jours passés qui avaient exactement la même configuration.</p>"
+};
+
+/* ================================================================== boot */
+async function boot() {
+  readPalette();
+  S.P = Object.assign({}, DEFAULT_P, LS.get('P') || {});
+  S.mode = LS.get('mode') || 'vj';
+  if (LS.get('skin') === 'light') { document.body.classList.add('light'); readPalette(); }
+  let d = window.__QDATA__;
+  if (!d) { try { d = await loadRemote(); } catch (e) { console.warn('remote data unavailable', e); } }
+  if (!d) { $('agentMsg').textContent = 'Données introuvables : data/history.json'; return; }
+  ingest(d); computeStatic(); computeBT(); renderAll(true); wire(); loop(); clock();
+  if (!window.__QDATA__) setInterval(pollLive, 5 * 60 * 1000);
+  initSample(); initFeed(); initSync();
+}
+async function fetchJSON(u) { const r = await fetch(u + (u.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); }
+async function loadRemote() {
+  const [history, brvm, ref] = await Promise.all([fetchJSON('data/history.json'), fetchJSON('data/brvm.json'), fetchJSON('data/brvm_ref.json')]);
+  let live = null; try { live = await fetchJSON('data/live.json'); } catch (e) { }
+  return { history, brvm, ref, live };
+}
+async function pollLive() {
+  try {
+    const d = await loadRemote();
+    const histChanged = d.history.asof !== HIST.asof || d.history.d.length !== HIST.d.length;
+    ingest(d); if (histChanged) { computeStatic(); computeBT(); } else { BR = brvmModel(BRV, REF); }
+    renderAll(false); flashGrid();
+  } catch (e) { console.warn('poll failed', e); }
+}
+function ingest(d) {
+  HIST = d.history; BRV = d.brvm; REF = d.ref; LIVE = d.live || null;
+  M = buildMarket(HIST); MK = HIST.mk;
+}
+function computeStatic() {
+  const t0 = performance.now();
+  R.ku = kuramoto(M, MK); R.an = analogMatch(M, MK); R.by = bayes(M, R.ku.R); R.tp = tapePressure(M); R.mem = membrane(M);
+  R.pe = permEntropy(Array.from(M.lr.slice(M.n - 64))); BR = brvmModel(BRV, REF);
+  const pk = R.an.pick; R.an.mfe = U.q(pk.map(p => Math.max(...p.fwd)).sort((a, b) => a - b), .5); R.an.mae = U.q(pk.map(p => Math.min(...p.fwd)).sort((a, b) => a - b), .5);
+  R.staticMs = performance.now() - t0;
+}
+function computeBT() {
+  const t0 = performance.now();
+  const P = S.P; R.bt = runBacktest(M, P); R.lb = leaderboard(M, P);
+  const bt = R.bt; const pB = { ...P, strat: 'bh', lev: 1 };
+  R.eps = { s: ddEpisodes(bt.eq, bt.s0, bt.s1), q: ddEpisodes(bt.bh, bt.s0, bt.s1), x: ddEpisodes(bt.bh3, bt.s0, bt.s1) };
+  R.km = { s: kaplanMeier(R.eps.s), q: kaplanMeier(R.eps.q), x: kaplanMeier(R.eps.x) };
+  runMC();
+  R.btMs = performance.now() - t0;
+}
+function runMC() { R.mc = monteCarlo(R.bt.st.rets, { H: S.H, N: 1000, block: +S.P.block || 20, ruin: (+S.P.ruin || 50) / 100, seed: S.seed }); S.reveal = RM ? 1 : 0; }
+
+/* ================================================================== live feed (artifact db, written by the sync task) */
+const FEED = { daily: false };
+function mergeDaily(doc) {
+  const rows = (doc && doc.rows) || []; let added = 0;
+  for (const r of rows) {
+    if (!r || !r.d || r.d <= HIST.d[HIST.d.length - 1] || !(r.c > 0)) continue;
+    HIST.d.push(r.d); HIST.o.push(r.o ?? r.c); HIST.h.push(r.h ?? r.c); HIST.l.push(r.l ?? r.c); HIST.c.push(r.c); HIST.v.push(r.v || 0); HIST.div.push(r.div || 0);
+    for (const k of Object.keys(HIST.mk)) { const a = HIST.mk[k]; const v = r.mk && r.mk[k] != null ? r.mk[k] : a[a.length - 1]; a.push(v ?? null); }
+    added++;
+  }
+  if (added) HIST.asof = HIST.d[HIST.d.length - 1];
+  return added > 0;
+}
+let applyT = null;
+function scheduleApply() {
+  clearTimeout(applyT);
+  applyT = setTimeout(() => {
+    if (FEED.daily) { FEED.daily = false; M = buildMarket(HIST); MK = HIST.mk; computeStatic(); computeBT(); } else BR = brvmModel(BRV, REF);
+    PARTS = null; renderAll(false); flashGrid();
+  }, 300);
+}
+async function initFeed() {
+  if (!window.claude || !window.claude.use) return;
+  let db = null; try { db = await window.claude.use('db'); } catch (e) { }
+  if (!db) return;
+  const sub = (id, fn) => { try { db.doc('feed/' + id).onSnapshot(snap => { if (!snap.exists) return; if (fn(snap.data())) scheduleApply(); }, e => console.warn('feed/' + id, e && e.code)); } catch (e) { } };
+  sub('daily', d => { if (mergeDaily(d)) { FEED.daily = true; return true; } return false; });
+  sub('live', d => { if (d && d.qqq && (!LIVE || (d.ts || 0) > (LIVE.ts || 0))) { LIVE = d; return true; } return false; });
+  sub('brvm', d => { if (d && d.rows && d.rows.length >= 40 && (!BRV || d.asof > BRV.asof || (d.ts || 0) > (BRV.ts || 0))) { BRV = d; return true; } return false; });
+}
+function toast(msg, ms = 7000) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, ms); }
+async function initSync() {
+  if (!/^trig_/.test(TRIGGER_ID) || !window.claude || !window.claude.use) return;
+  let mcp = null; try { mcp = await window.claude.use('mcp'); } catch (e) { }
+  if (!mcp) return;
+  const b = $('syncBtn'); b.hidden = false;
+  b.addEventListener('click', async () => {
+    b.disabled = true; b.textContent = '… SYNC';
+    try {
+      await mcp.callTool('Claude Code Remote', 'fire_trigger', { trigger_id: TRIGGER_ID }, { cache: false });
+      toast('Synchronisation lancée : les cours du dernier relevé GitHub (15 min) arrivent dans 2 à 4 minutes, sans recharger la page.', 9000);
+      b.textContent = '✓ SYNC';
+    } catch (e) {
+      const c = e && e.code; b.textContent = '⟳ SYNC';
+      toast(c === 'rate_limited' ? 'Trop de demandes rapprochées : réessaie dans quelques minutes.'
+        : c === 'not_granted' || c === 'consent_required' ? "Autorisation refusée : ouvre le menu Autorisations de la page pour permettre la synchro."
+        : c === 'server_not_connected' || c === 'server_not_found' ? "Le connecteur Claude Code Remote n'est pas disponible sur ce compte."
+        : 'La synchro n’a pas pu être lancée (' + (c || 'erreur') + '). La mise à jour planifiée tourne quand même.', 9000);
+    } finally { setTimeout(() => { b.disabled = false; b.textContent = '⟳ SYNC'; }, 60000); }
+  });
+}
+
+/* ================================================================== header / rank / tape */
+function liveState() {
+  if (!LIVE || !LIVE.qqq) return null;
+  const age = Date.now() / 1000 - (LIVE.ts || 0);
+  return { ...LIVE.qqq, fresh: age < 40 * 60, age };
+}
+function renderHeader() {
+  const L = liveState(), st = $('status');
+  if (L && L.fresh && L.state === 'REGULAR') { st.classList.remove('eod'); $('statusTxt').textContent = 'LIVE ·'; $('statusSub').textContent = 'FEED 15M'; }
+  else if (L) { st.classList.add('eod'); $('statusTxt').textContent = (L.state || 'EOD') + ' ·'; $('statusSub').textContent = 'MAJ ' + new Date((LIVE.ts || 0) * 1000).toISOString().slice(11, 16) + ' UTC'; }
+  else { st.classList.add('eod'); $('statusTxt').textContent = 'EOD ·'; $('statusSub').textContent = dshort(M.d[M.n - 1]) + ' ' + M.d[M.n - 1].slice(0, 4); }
+  $('lat').textContent = Math.max(1, Math.round(R.btMs)) + 'MS';
+  $('barn').textContent = '#' + nf0.format(M.n);
+  $('fitLab').textContent = S.bars >= 2500 ? 'ALL' : S.bars + (S.tf === '5M' ? '×5M' : S.tf === '1W' ? 'W' : 'D');
+}
+function clock() { const tick = () => { const d = new Date(); $('clock').textContent = d.toISOString().slice(11, 19); }; tick(); setInterval(tick, 1000); }
+function renderRank() {
+  const lb = R.lb, me = lb.findIndex(x => x.k === S.P.strat) + 1, bt = R.bt;
+  const out = bt.st.final - bt.stB.final;
+  const trophy = `<svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 3h10v3h4v3a5 5 0 0 1-5 5h-.3A6 6 0 0 1 13 16.9V19h4v2H7v-2h4v-2.1A6 6 0 0 1 8.3 14H8a5 5 0 0 1-5-5V6h4V3zm0 5H5v1a3 3 0 0 0 2 2.8V8zm12 0h-2v3.8A3 3 0 0 0 19 9V8z"/></svg>`;
+  $('rank').innerHTML = `<span class="trophy">${trophy}#${me} / ${lb.length} STRATS</span>
+    <span>SHARPE <b style="color:var(--amber)">${bt.st.sharpe.toFixed(2)}</b></span><span class="sep">·</span>
+    <span class="hide-m">BEATING ${lb.length - me} STRATÉGIES</span><span class="sep hide-m">·</span>
+    <span class="g">▲ CAGR ${pct(bt.st.cagr)} / AN</span><span class="sep">·</span>
+    <span class="hide-m">${out >= 0 ? 'OUT-PERFORMING' : 'UNDER-PERFORMING'} QQQ B&amp;H BY ${usd(Math.abs(out)).replace('$', '$')}</span>
+    <span class="right">SIM ${S.P.lev}× ≈ ${S.P.lev == 3 ? 'TQQQ' : S.P.lev == 2 ? 'QLD' : 'QQQ'} · DATA ${dfr(M.d[M.n - 1])}</span>`;
+}
+function renderTape() {
+  const items = [];
+  const L = liveState(); const qp = L ? L.price : M.c[M.n - 1], qc = L ? L.chg : M.c[M.n - 1] / M.c[M.n - 2] - 1;
+  items.push(`<span><b>QQQ</b> ${nf2.format(qp)} <span class="${cls(qc)}">${qc >= 0 ? '▲' : '▼'} ${pct(qc, 2, false)}</span></span>`);
+  for (const x of BR.idx) items.push(`<span><b>${x.k}</b> ${x.v.toFixed(2)} <span class="${cls(x.vj)}">${x.vj >= 0 ? '▲' : '▼'} ${pp(x.vj, 2, false)}</span></span>`);
+  const rows = BR.rows.slice().sort((a, b) => Math.abs(b.vj) - Math.abs(a.vj));
+  for (const r of rows) items.push(`<span><b>${r.t}</b> ${fcfa(r.c)} <span class="${cls(r.vj)}">${r.vj > 0 ? '▲' : r.vj < 0 ? '▼' : '■'} ${pp(r.vj, 2, false)}</span> · VOL ${compact(r.vol)}</span>`);
+  const html = items.join('');
+  $('tape').innerHTML = html + html;
+  $('tapeTag').lastChild.textContent = ' BRVM ' + BR.asof.slice(8, 10) + '/' + BR.asof.slice(5, 7);
+}
+
+/* ================================================================== PNL */
+let bigCur = 0, bigAnim = null;
+function renderPNL(first) {
+  const bt = R.bt, st = bt.st, P = S.P;
+  $('pid').textContent = bt.id;
+  $('psub').textContent = `${STRATS[P.strat].name} · ${P.lev}× · ${P.exec === 'close' ? 'ON-CLOSE' : 'NEXT-OPEN'} · ${dfr(M.d[bt.s0])} → ${dfr(M.d[bt.s1])}`;
+  $('pnlSpan').textContent = `BACKTEST PNL · ${st.years.toFixed(1)}Y`;
+  const target = st.final; const from = first ? +P.cap : bigCur; const t0 = performance.now(), dur = RM ? 0 : 1100;
+  cancelAnimationFrame(bigAnim);
+  const step = t => { const k = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3); bigCur = from + (target - from) * e;
+    $('big').innerHTML = '<sup>$</sup>' + nf0.format(Math.round(bigCur)); if (k < 1) bigAnim = requestAnimationFrame(step); };
+  bigAnim = requestAnimationFrame(step);
+  $('big').classList.toggle('neg', target < P.cap);
+  const ld = st.lastDay; $('dbox').textContent = (ld >= 0 ? '▲ +' : '▼ −') + usd(Math.abs(ld)).replace('−', ''); $('dbox').classList.toggle('neg', ld < 0);
+  $('dlab').innerHTML = `SETTLED · <b>QQQ ${dshort(M.d[bt.s1])}</b> · ${bt.ex[bt.s1] > 0 ? 'LONG ' + Math.round(bt.ex[bt.s1] * 100) + '%' : 'CASH'}`;
+  $('dpct').textContent = pct(st.total, 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  $('kT').textContent = nf0.format(st.trades);
+  $('kW').textContent = isFinite(st.win) ? (st.win * 100).toFixed(1) + '%' : '—';
+  $('kR').textContent = isFinite(st.rr) ? st.rr.toFixed(2) : '∞';
+  $('kS').textContent = st.sharpe.toFixed(2);
+  $('eqlab').innerHTML = `EQUITY CURVE · ${st.years.toFixed(1)}Y · <em>LOG</em> <span style="color:var(--dim)">— QQQ B&amp;H</span>`;
+  const ruin = (+P.ruin || 50) / 100, risk = Math.min(10, Math.abs(st.ddNow) / ruin * 10);
+  $('riskv').textContent = risk.toFixed(1);
+  const rb = $('riskb'); rb.textContent = risk < 3 ? 'SAFE' : risk < 6 ? 'WATCH' : 'DANGER'; rb.className = 'bdg ' + (risk < 3 ? 'g' : risk < 6 ? 'a' : 'r');
+  $('riskv').style.color = risk < 3 ? 'var(--green)' : risk < 6 ? 'var(--amber)' : 'var(--red)';
+  $('riskbox').style.borderColor = risk < 3 ? 'rgba(63,224,138,.35)' : risk < 6 ? 'rgba(246,183,60,.45)' : 'rgba(255,59,85,.5)';
+  $('rfill').style.width = (risk * 10) + '%'; $('rmark').style.left = Math.min(99, Math.abs(st.mdd) / ruin * 100) + '%';
+  $('rnote').textContent = `DD ACTUEL ${pct(st.ddNow)} · PIRE ${pct(st.mdd)} · SEUIL −${P.ruin}%`;
+}
+function drawEquity() {
+  const g = cv('cv-eq'); if (!g) return; const { x, w, h } = g, bt = R.bt; x.clearRect(0, 0, w, h);
+  const s0 = bt.s0, s1 = bt.s1, N = s1 - s0; let lo = Infinity, hi = -Infinity;
+  for (let i = s0; i <= s1; i++) { lo = Math.min(lo, bt.eq[i], bt.bh[i]); hi = Math.max(hi, bt.eq[i], bt.bh[i]); }
+  lo = Math.log(lo); hi = Math.log(hi); const pad = (hi - lo) * .12; lo -= pad; hi += pad;
+  const X = i => 4 + (i - s0) / N * (w - 10), Y = v => h - 4 - (Math.log(v) - lo) / (hi - lo) * (h - 18);
+  x.strokeStyle = rgba(C.dim, .25); x.lineWidth = 1; x.setLineDash([2, 3]); x.beginPath();
+  for (let i = s0; i <= s1; i += 2) { const px = X(i), py = Y(bt.bh[i]); i === s0 ? x.moveTo(px, py) : x.lineTo(px, py); } x.stroke(); x.setLineDash([]);
+  const gr = x.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, rgba(C.amber, .22)); gr.addColorStop(1, rgba(C.amber, 0));
+  x.beginPath(); for (let i = s0; i <= s1; i++) { const px = X(i), py = Y(bt.eq[i]); i === s0 ? x.moveTo(px, py) : x.lineTo(px, py); }
+  x.lineTo(X(s1), h); x.lineTo(X(s0), h); x.closePath(); x.fillStyle = gr; x.fill();
+  x.beginPath(); for (let i = s0; i <= s1; i++) { const px = X(i), py = Y(bt.eq[i]); i === s0 ? x.moveTo(px, py) : x.lineTo(px, py); }
+  x.strokeStyle = C.amber; x.lineWidth = 1.6; x.shadowColor = C.amber; x.shadowBlur = 8; x.stroke(); x.shadowBlur = 0;
+  x.fillStyle = C.amber; x.beginPath(); x.arc(X(s1), Y(bt.eq[s1]), 2.6, 0, 7); x.fill();
+}
+
+/* ================================================================== QQQ chart */
+function chartSeries() {
+  const n = M.n, L = liveState();
+  if (S.tf === '5M' && LIVE && LIVE.intraday && LIVE.intraday.t && LIVE.intraday.t.length) {
+    const I = LIVE.intraday; return { t: I.t.map(s => new Date(s * 1000).toISOString().slice(5, 16).replace('T', ' ')), o: I.o, h: I.h, l: I.l, c: I.c, v: I.v, intra: true };
+  }
+  let s = { t: M.d.slice(), o: M.o.slice(), h: M.h.slice(), l: M.l.slice(), c: M.c.slice(), v: M.v.slice(), sma200: Array.from(M.sma200), sma50: Array.from(M.sma50), ex: Array.from(R.bt.ex), prov: -1 };
+  if (L && L.day && L.day > M.d[n - 1] && L.price) {
+    s.t.push(L.day); s.o.push(L.open || L.price); s.h.push(Math.max(L.dayHigh || L.price, L.price)); s.l.push(Math.min(L.dayLow || L.price, L.price)); s.c.push(L.price); s.v.push(L.vol || 0);
+    s.sma200.push((M.sma200[n - 1] * 200 - M.c[n - 200] + L.price) / 200); s.sma50.push((M.sma50[n - 1] * 50 - M.c[n - 50] + L.price) / 50); s.ex.push(R.bt.ex[n - 1]); s.prov = s.t.length - 1;
+  }
+  if (S.tf === '1W') {
+    const w = { t: [], o: [], h: [], l: [], c: [], v: [], sma200: [], sma50: [], ex: [] }; let key = null;
+    for (let i = 0; i < s.t.length; i++) { const dt = new Date(s.t[i] + 'T12:00:00Z'); const mon = new Date(dt - ((dt.getUTCDay() + 6) % 7) * 864e5).toISOString().slice(0, 10);
+      if (mon !== key) { key = mon; w.t.push(s.t[i]); w.o.push(s.o[i]); w.h.push(s.h[i]); w.l.push(s.l[i]); w.c.push(s.c[i]); w.v.push(s.v[i]); w.sma200.push(s.sma200[i]); w.sma50.push(s.sma50[i]); w.ex.push(s.ex[i]); }
+      else { const k = w.t.length - 1; w.h[k] = Math.max(w.h[k], s.h[i]); w.l[k] = Math.min(w.l[k], s.l[i]); w.c[k] = s.c[i]; w.v[k] += s.v[i]; w.sma200[k] = s.sma200[i]; w.sma50[k] = s.sma50[i]; w.ex[k] = s.ex[i]; } }
+    w.prov = -1; return w;
+  }
+  return s;
+}
+function drawChart() {
+  const g = cv('cv-chart'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h);
+  const s = chartSeries(), len = s.c.length, N = Math.min(S.bars, len), i0 = len - N;
+  const padT = 52, padB = 18, padR = 52, volH = (h - padT - padB) * .2, ph = h - padT - padB - volH - 6;
+  let lo = Infinity, hi = -Infinity, vmax = 0;
+  for (let i = i0; i < len; i++) { lo = Math.min(lo, s.l[i]); hi = Math.max(hi, s.h[i]); vmax = Math.max(vmax, s.v[i]); }
+  const span0 = hi - lo;
+  for (const arr of [s.sma200, s.sma50]) if (arr) for (let i = i0; i < len; i++) { const v = arr[i]; if (isFinite(v) && v > lo - span0 * .3 && v < hi + span0 * .3) { lo = Math.min(lo, v); hi = Math.max(hi, v); } }
+  const pd = (hi - lo) * .06; lo -= pd; hi += pd;
+  const cw = (w - padR - 8) / N, X = i => 6 + (i - i0 + .5) * cw, Y = v => padT + (hi - v) / (hi - lo) * ph;
+  S.cl = { i0, N, cw, len, s, X, Y, padR, w, h };
+  x.font = FONT(9, 500); x.textAlign = 'left'; x.textBaseline = 'middle';
+  for (let k = 0; k <= 4; k++) { const v = lo + (hi - lo) * k / 4, y = Y(v); x.strokeStyle = rgba(C.dim, .12); x.lineWidth = 1; x.beginPath(); x.moveTo(0, y); x.lineTo(w - padR, y); x.stroke();
+    x.fillStyle = rgba(C.dim, .8); x.fillText(nf2.format(v), w - padR + 6, y); }
+  const vb = h - padB;
+  for (let i = i0; i < len; i++) { const up = s.c[i] >= s.o[i], vh = vmax ? s.v[i] / vmax * volH : 0;
+    x.fillStyle = rgba(up ? C.green : C.red, i === s.prov ? .35 : .55); x.fillRect(X(i) - cw * .36, vb - vh, Math.max(1, cw * .72), vh); }
+  const line = (arr, col, lw, dash) => { x.strokeStyle = col; x.lineWidth = lw; x.setLineDash(dash || []); x.beginPath(); let st = false;
+    for (let i = i0; i < len; i++) { const v = arr[i]; if (!isFinite(v)) continue; const px = X(i), py = Y(v); st ? x.lineTo(px, py) : (x.moveTo(px, py), st = true); } x.stroke(); x.setLineDash([]); };
+  x.save(); x.beginPath(); x.rect(0, padT - 8, w - padR, ph + 14); x.clip();
+  if (s.sma50) line(s.sma50, rgba(C.cyan, .55), 1);
+  if (s.sma200) { x.shadowColor = C.amber; x.shadowBlur = 6; line(s.sma200, C.amber, 1.5); x.shadowBlur = 0; }
+  x.restore();
+  if (s.sma200 && isFinite(s.sma200[len - 1]) && (s.sma200[len - 1] < lo || s.sma200[len - 1] > hi)) { const v = s.sma200[len - 1], below = v < lo;
+    x.font = FONT(8.5, 800); x.fillStyle = C.amber; x.textAlign = 'right'; x.textBaseline = 'middle'; x.fillText(`SMA200 ${nf2.format(v)} ${below ? '↓' : '↑'} ${pct(v / s.c[len - 1] - 1, 1)}`, w - padR - 6, below ? padT + ph - 4 : padT + 2); }
+  for (let i = i0; i < len; i++) {
+    const up = s.c[i] >= s.o[i], col = up ? C.green : C.red, px = X(i); x.globalAlpha = i === s.prov ? .5 : 1;
+    x.strokeStyle = col; x.lineWidth = 1; x.beginPath(); x.moveTo(px, Y(s.h[i])); x.lineTo(px, Y(s.l[i])); x.stroke();
+    const yo = Y(s.o[i]), yc = Y(s.c[i]); x.fillStyle = col; x.fillRect(px - cw * .34, Math.min(yo, yc), Math.max(1, cw * .68), Math.max(1, Math.abs(yc - yo)));
+    x.globalAlpha = 1;
+  }
+  if (s.ex && !s.intra) for (let i = Math.max(i0, 1); i < len; i++) {
+    const a = s.ex[i - 1] > 0, b = s.ex[i] > 0; if (a === b) continue; const px = X(i);
+    if (b) { const y = Y(s.l[i]) + 10; x.fillStyle = C.green; x.beginPath(); x.moveTo(px, y - 5); x.lineTo(px - 4.5, y + 3); x.lineTo(px + 4.5, y + 3); x.fill(); }
+    else { const y = Y(s.h[i]) - 10; x.fillStyle = C.red; x.beginPath(); x.moveTo(px, y + 5); x.lineTo(px - 4.5, y - 3); x.lineTo(px + 4.5, y - 3); x.fill(); }
+  }
+  const lp = s.c[len - 1], ly = Y(lp); x.strokeStyle = rgba(C.amber, .55); x.setLineDash([2, 3]); x.beginPath(); x.moveTo(0, ly); x.lineTo(w - padR, ly); x.stroke(); x.setLineDash([]);
+  const tag = nf2.format(lp); x.font = FONT(10, 800); const tw = x.measureText(tag).width + 12;
+  x.fillStyle = C.panel; x.fillRect(w - padR - tw + 2, ly - 9, tw, 18); x.strokeStyle = C.amber; x.lineWidth = 1.5; x.strokeRect(w - padR - tw + 2, ly - 9, tw, 18);
+  x.shadowColor = C.amber; x.shadowBlur = 10; x.strokeRect(w - padR - tw + 2, ly - 9, tw, 18); x.shadowBlur = 0;
+  x.fillStyle = C.amber; x.textAlign = 'center'; x.fillText(tag, w - padR - tw / 2 + 2, ly + .5);
+  x.font = FONT(8.5, 500); x.fillStyle = rgba(C.dim, .9); x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  const every = Math.max(1, Math.round(N / 6)); for (let i = len - 1; i >= i0; i -= every) x.fillText(s.intra ? s.t[i].slice(6) : s.t[i].slice(2), X(i), h - 4);
+  if (S.hover != null && S.hover >= i0 && S.hover < len) {
+    const i = S.hover, px = X(i); x.strokeStyle = rgba(C.txt, .35); x.setLineDash([3, 3]); x.beginPath(); x.moveTo(px, padT - 6); x.lineTo(px, h - padB); x.stroke(); x.setLineDash([]);
+    $('xhair').innerHTML = `${s.t[i]} · O <b>${nf2.format(s.o[i])}</b> H <b>${nf2.format(s.h[i])}</b> L <b>${nf2.format(s.l[i])}</b> C <b style="color:${s.c[i] >= s.o[i] ? 'var(--green)' : 'var(--red)'}">${nf2.format(s.c[i])}</b> · V ${compact(s.v[i])}${s.sma200 && isFinite(s.sma200[i]) ? ' · SMA200 ' + nf2.format(s.sma200[i]) : ''}`;
+  } else $('xhair').innerHTML = s.intra ? 'INTRADAY 5M · YAHOO' : `SMA200 <b style="color:var(--amber)">${nf2.format(s.sma200[len - 1])}</b> · SMA50 <b style="color:var(--cyan)">${nf2.format(s.sma50[len - 1])}</b> · ▲▼ SIGNAUX ${STRATS[S.P.strat].short}`;
+  const prev = s.c[len - 2], chg = lp / prev - 1;
+  $('cprice').innerHTML = `$${nf2.format(lp)}<small class="${cls(chg)}">${pct(chg, 2)}</small>`;
+  $('chTitle').innerHTML = `QQQ / USD · <span style="color:var(--amber)">${s.intra ? '5M' : S.tf}</span> · $${nf2.format(lp)} <span class="${cls(chg)}">${chg >= 0 ? '▲' : '▼'} ${pct(chg, 2, false)}</span>`;
+  const L = liveState(); $('chSrc').textContent = s.intra ? 'INTRADAY · YAHOO' : L && L.fresh ? 'LIVE · YAHOO 15M' : 'EOD · YAHOO';
+}
+function renderTF() {
+  const has5 = LIVE && LIVE.intraday && LIVE.intraday.t && LIVE.intraday.t.length > 10;
+  const tfs = (has5 ? ['5M'] : []).concat(['1D', '1W']); if (!tfs.includes(S.tf)) S.tf = '1D';
+  $('ctf').innerHTML = tfs.map(t => `<button class="${t === S.tf ? 'on' : ''}" data-tf="${t}">${t}</button>`).join('');
+}
+function renderLadder() {
+  const n = M.n, L = liveState(), px = L && L.price ? L.price : M.c[n - 1];
+  const Hh = M.h[n - 1], Ll = M.l[n - 1], Cc = M.c[n - 1], Pp = (Hh + Ll + Cc) / 3;
+  let hi52 = 0, lo52 = Infinity, ath = 0; for (let i = 0; i < n; i++) { ath = Math.max(ath, M.h[i]); if (i >= n - 252) { hi52 = Math.max(hi52, M.h[i]); lo52 = Math.min(lo52, M.l[i]); } }
+  const c = [{ k: 'R1', v: 2 * Pp - Ll }, { k: 'R2', v: Pp + (Hh - Ll) }, { k: 'R3', v: Hh + 2 * (Pp - Ll) }, { k: 'S1', v: 2 * Pp - Hh }, { k: 'S2', v: Pp - (Hh - Ll) }, { k: 'S3', v: Ll - 2 * (Hh - Pp) },
+    { k: 'PIVOT', v: Pp }, { k: 'SMA20', v: M.sma20[n - 1] }, { k: 'SMA50', v: M.sma50[n - 1] }, { k: 'SMA200', v: M.sma200[n - 1] }, { k: 'HI 52S', v: hi52 }, { k: 'LO 52S', v: lo52 }, { k: 'ATH', v: ath }];
+  const uniq = []; for (const l of c.sort((a, b) => a.v - b.v)) if (!uniq.some(u => Math.abs(u.v / l.v - 1) < .0004)) uniq.push(l);
+  const above = uniq.filter(l => l.v > px).slice(0, 5).reverse(), below = uniq.filter(l => l.v <= px).reverse().slice(0, 5);
+  const row = (l, k) => `<div class="lv ${k}"><b>${nf2.format(l.v)}</b><small>${l.k} ${pct(l.v / px - 1, 1)}</small></div>`;
+  const d200 = px / M.sma200[n - 1] - 1;
+  $('ladder').innerHTML = `<div class="lh"><span>KEY LEVELS</span><span>DIST</span></div>${above.map(l => row(l, 'r')).join('')}
+    <div class="spread"><span>Δ SMA200</span><b>${pct(d200, 1)}</b></div>${below.map(l => row(l, 'g')).join('')}`;
+}
+
+/* ================================================================== BRVM grid */
+const MODES = [{ k: 'vj', l: 'JOUR' }, { k: 'ytd', l: 'YTD' }, { k: 'yld', l: 'RDT' }, { k: 'per', l: 'PER' }, { k: 'score', l: 'SCORE' }, { k: 'table', l: 'TABLE' }];
+function cellState(r, m) {
+  const v = m === 'vj' ? r.vj : m === 'ytd' ? r.ytd : m === 'yld' ? (r.fresh ? r.yld : 0) : m === 'per' ? r.per : r.score;
+  if (v == null || !isFinite(v)) return 's-0';
+  if (m === 'vj') return v >= 2 ? 's-up2' : v > 0 ? 's-up1' : v === 0 ? 's-0' : v > -2 ? 's-dn1' : 's-dn2';
+  if (m === 'ytd') return v >= 60 ? 's-up2' : v > 0 ? 's-up1' : v > -10 ? 's-dn1' : 's-dn2';
+  if (m === 'yld') return v >= 7 ? 's-up2' : v >= 5 ? 's-up1' : v >= 3 ? 's-0' : 's-dn1';
+  if (m === 'per') return v < 10 ? 's-up2' : v < 15 ? 's-up1' : v < 20 ? 's-0' : v < 40 ? 's-dn1' : 's-dn2';
+  return v >= 70 ? 's-up2' : v >= 55 ? 's-up1' : v >= 40 ? 's-0' : v >= 25 ? 's-dn1' : 's-dn2';
+}
+function metric(r, m) { return m === 'vj' ? r.vj : m === 'ytd' ? r.ytd : m === 'yld' ? (r.yld || 0) : m === 'per' ? (r.per == null || r.per <= 0 ? null : -r.per) : r.score; }
+function renderGrid() {
+  const m = S.mode === 'table' ? 'score' : S.mode;
+  $('gUp').textContent = 'HAUSSE ' + BR.upN; $('gDn').textContent = 'BAISSE ' + BR.dnN;
+  const ix = BR.idx; const c0 = ix[0], c1 = ix[1];
+  $('gSub').innerHTML = `${c0.k} <b>${c0.v.toFixed(2)}</b> <span class="${cls(c0.vj)}">${pp(c0.vj)}</span> · YTD <span class="${cls(c0.ytd)}">${pp(c0.ytd, 1)}</span> · ${c1.k} <b>${c1.v.toFixed(2)}</b> · CAPI <b>${(BR.capA / 1e12).toFixed(2)}</b> K MDS · ${BR.session.toUpperCase()}`;
+  $('gModes').innerHTML = MODES.map(x => `<button class="chip ${S.mode === x.k ? 'on' : ''}" data-mode="${x.k}">${x.l}</button>`).join('');
+  if (S.mode === 'table') { $('bgrid').hidden = true; $('btable').hidden = false; renderTable(); return; }
+  $('bgrid').hidden = false; $('btable').hidden = true;
+  const rows = BR.rows.slice().sort((a, b) => { const A = metric(a, m), B = metric(b, m); return (B == null ? -1e9 : B) - (A == null ? -1e9 : A); });
+  const absMax = Math.max(...rows.map(r => Math.abs(metric(r, m) || 0)), 1e-9);
+  $('bgrid').innerHTML = rows.map(r => {
+    let main, foot;
+    if (m === 'vj') { main = fcfa(r.c); foot = `<b class="${cls(r.vj)}">${pp(r.vj)}</b>`; }
+    else if (m === 'ytd') { main = pp(r.ytd, 0); foot = fcfa(r.c); }
+    else if (m === 'yld') { main = r.yld != null ? r.yld.toFixed(1) + '%' : '—'; foot = r.per ? 'PER ' + r.per.toFixed(1) : '—'; }
+    else if (m === 'per') { main = r.per != null ? r.per.toFixed(1) : '—'; foot = r.yld != null ? 'RDT ' + r.yld.toFixed(1) + '%' : '—'; }
+    else { main = r.score; foot = '#' + r.rank; }
+    const bw = Math.min(100, Math.abs(metric(r, m) || 0) / absMax * 100);
+    return `<button class="cell ${cellState(r, m)}" data-t="${r.t}" title="${esc(r.n)}"><span class="ct"><span>${r.t}</span><span>${r.cty}</span></span><span class="cv">${main}</span><span class="cb"><i style="width:${bw}%"></i></span><span class="cf"><span>${r.noTrade ? 'S/T' : compact(r.vol)}</span>${foot}</span></button>`;
+  }).join('');
+}
+function flashGrid() { if (RM) return; [...document.querySelectorAll('.cell')].forEach((c, i) => setTimeout(() => { c.classList.remove('flash'); void c.offsetWidth; c.classList.add('flash'); }, i * 18)); }
+function renderTable() {
+  const cols = [['t', 'TICKER'], ['n', 'NOM'], ['sec', 'SECT'], ['cty', 'PAYS'], ['c', 'COURS'], ['vj', 'VAR J'], ['ytd', 'YTD'], ['yld', 'RDT'], ['per', 'PER'], ['div', 'DIV NET'], ['divd', 'PAIEMENT'], ['vol', 'VOL'], ['score', 'SCORE']];
+  const { k, dir } = S.sort;
+  const rows = BR.rows.slice().sort((a, b) => { const A = a[k], B = b[k]; if (A == null) return 1; if (B == null) return -1; return (typeof A === 'string' ? A.localeCompare(B) : A - B) * dir; });
+  $('btable').innerHTML = `<table><thead><tr>${cols.map(([c, l]) => `<th data-k="${c}" class="${c === k ? 'on' : ''}">${l}${c === k ? (dir > 0 ? ' ▲' : ' ▼') : ''}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr data-t="${r.t}">
+    <td><b>${r.t}</b></td><td>${esc(r.n)}</td><td>${r.sec}</td><td>${r.cty}</td><td><b>${fcfa(r.c)}</b></td><td class="${cls(r.vj)}">${pp(r.vj)}</td><td class="${cls(r.ytd)}">${pp(r.ytd, 1)}</td>
+    <td style="${r.fresh ? '' : 'color:var(--dim)'}">${r.yld != null ? r.yld.toFixed(2) + '%' + (r.fresh ? '' : '*') : '—'}</td><td>${r.per != null ? r.per.toFixed(1) : '—'}</td><td>${r.div != null ? fcfa(r.div) : '—'}</td><td>${r.divd ? dfr(r.divd) : '—'}</td><td>${compact(r.vol)}</td><td style="color:var(--amber)"><b>${r.score}</b></td></tr>`).join('')}</tbody></table>`;
+}
+function openStock(t) {
+  const r = BR.rows.find(x => x.t === t); if (!r) return;
+  $('mTitle').textContent = `${r.t} · ${r.n}`;
+  $('mSub').textContent = `${(BR.sectors[r.sec] || r.sec).toUpperCase()} · ${(CTY[r.cty] || r.cty).toUpperCase()} · SÉANCE ${dfr(BR.asof)}`;
+  const notes = [];
+  if (r.noTrade) notes.push('Aucune transaction sur la séance : cours = cours de référence.');
+  if (r.div != null && !r.fresh) notes.push(`Dernier dividende ancien (${r.divd ? dfr(r.divd) : '—'}) : rendement exclu du score.`);
+  if (r.per != null && r.per > 60) notes.push('PER très élevé : bénéfice faible ou exceptionnel, à vérifier dans les comptes.');
+  if (r.yld != null && r.yld > 20) notes.push('Rendement exceptionnel (dividende non récurrent probable).');
+  if (r.ytd == null) notes.push('Introduction récente : pas de variation annuelle de référence.');
+  $('mBody').innerHTML = `
+    <div class="mprice"><b>${fcfa(r.c)} <small style="font-size:13px;color:var(--dim)">FCFA</small></b><span class="${cls(r.vj)}" style="font-weight:800">${pp(r.vj)}</span><span style="color:var(--dim)">YTD <b class="${cls(r.ytd)}">${pp(r.ytd, 1)}</b></span></div>
+    <div class="mkv">
+      <div><span>VEILLE</span><b>${fcfa(r.prev)}</b></div><div><span>OUVERTURE</span><b>${r.o ? fcfa(r.o) : '—'}</b></div><div><span>VOLUME</span><b>${fcfa(r.vol)}</b></div>
+      <div><span>VALEUR ÉCHANGÉE</span><b>${compact(r.val)}</b></div><div><span>DIVIDENDE NET</span><b>${r.div != null ? fcfa(r.div) : '—'}</b></div><div><span>PAIEMENT</span><b>${r.divd ? dfr(r.divd) : '—'}</b></div>
+      <div><span>RENDEMENT</span><b style="color:${r.fresh ? 'var(--green)' : 'var(--dim)'}">${r.yld != null ? r.yld.toFixed(2) + '%' : '—'}</b></div><div><span>PER</span><b>${r.per != null ? r.per.toFixed(1) : '—'}</b></div><div><span>PAYS</span><b>${r.cty}</b></div>
+    </div>
+    <div class="score"><div><div style="font-size:9px;color:var(--dim);letter-spacing:.14em">QUANT SCORE</div><div class="sv">${r.score}<small style="font-size:12px;color:var(--dim)">/100</small></div><div style="font-size:10px;color:var(--dim)">RANG #${r.rank} / ${BR.rows.length}</div></div>
+      <div class="sbars">${[['RENDEMENT', r.sc.y], ['VALORISATION', r.sc.v], ['MOMENTUM YTD', r.sc.m], ['LIQUIDITÉ', r.sc.l]].map(([l, v]) => `<div><span>${l}</span><span class="sb"><i style="width:${Math.round(v * 100)}%"></i></span><span>${Math.round(v * 100)}</span></div>`).join('')}</div></div>
+    <div class="sim"><span>INVESTIR</span><input id="simIn" type="number" value="1000000" step="50000" min="0" aria-label="Montant en FCFA"><span>FCFA →</span><span id="simOut"></span></div>
+    ${notes.length ? `<div class="note">${notes.map(esc).join('<br>')}</div>` : ''}
+    <div class="note">Source : ${esc(BR.src)}. Rendement et PER recalculés au cours affiché.</div>`;
+  const sim = () => { const a = +$('simIn').value || 0, q = Math.floor(a / r.c), dv = r.div && r.fresh ? q * r.div : 0;
+    $('simOut').innerHTML = `<b>${fcfa(q)}</b> titres · dividende net annuel ≈ <b>${fcfa(dv)}</b> FCFA${r.div && !r.fresh ? ' (pas de dividende récent)' : ''}`; };
+  $('simIn').addEventListener('input', sim); sim();
+  $('modal').classList.add('on'); $('scrim').classList.add('on'); $('mClose').focus();
+}
+function closeOverlays() { $('modal').classList.remove('on'); $('drawer').classList.remove('open'); $('scrim').classList.remove('on'); }
+
+/* ================================================================== survival */
+function drawSurvival() {
+  const g = cv('cv-surv'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h);
+  const pl = 34, pr = 8, pt = 8, pb = 26, W = w - pl - pr, Hh = h - pt - pb;
+  const all = [...R.eps.s, ...R.eps.q, ...R.eps.x].map(e => e.dur).sort((a, b) => a - b); const tMax = Math.max(40, U.q(all, .95) * 1.1);
+  const X = t => pl + Math.min(1, t / tMax) * W, Y = s => pt + (1 - s) * Hh;
+  x.font = FONT(8.5, 500); x.textBaseline = 'middle'; x.textAlign = 'right';
+  for (const s of [0, .25, .5, .75, 1]) { x.strokeStyle = rgba(C.dim, .12); x.beginPath(); x.moveTo(pl, Y(s)); x.lineTo(w - pr, Y(s)); x.stroke(); x.fillStyle = rgba(C.dim, .85); x.fillText(Math.round(s * 100) + '%', pl - 5, Y(s)); }
+  x.textAlign = 'center'; x.textBaseline = 'alphabetic'; const step = tMax > 300 ? 100 : tMax > 120 ? 50 : 20;
+  for (let t = 0; t <= tMax; t += step) x.fillText(t + 'J', X(t), h - 13);
+  const path = (km) => { x.beginPath(); x.moveTo(X(0), Y(1)); let s = 1; for (const p of km) { x.lineTo(X(p.t), Y(s)); x.lineTo(X(p.t), Y(p.S)); s = p.S; } x.lineTo(X(tMax), Y(s)); return s; };
+  const area = (km, col, a) => { path(km); x.lineTo(X(tMax), Y(0)); x.lineTo(X(0), Y(0)); x.closePath(); const gr = x.createLinearGradient(0, pt, 0, pt + Hh); gr.addColorStop(0, rgba(col, a)); gr.addColorStop(1, rgba(col, a * .25)); x.fillStyle = gr; x.fill(); };
+  area(R.km.q, C.red, .45); x.strokeStyle = C.red; x.lineWidth = 1.3; path(R.km.q); x.stroke();
+  x.setLineDash([3, 3]); x.strokeStyle = C.orange; x.lineWidth = 1.3; path(R.km.x); x.stroke(); x.setLineDash([]);
+  area(R.km.s, C.green, .5); x.strokeStyle = C.green; x.lineWidth = 1.8; x.shadowColor = C.green; x.shadowBlur = 6; path(R.km.s); x.stroke(); x.shadowBlur = 0;
+  const p50 = kmQuantile(R.km.s, .5);
+  if (isFinite(p50)) { const px = X(p50); x.strokeStyle = rgba(C.amber, .8); x.setLineDash([2, 3]); x.beginPath(); x.moveTo(px, pt); x.lineTo(px, pt + Hh); x.stroke(); x.setLineDash([]);
+    const lab = 'P50 · ' + p50 + 'J'; x.font = FONT(8.5, 800); const tw = x.measureText(lab).width + 10; x.fillStyle = rgba(C.green, .2); x.strokeStyle = C.green; x.fillRect(px + 4, Y(.5) - 8, tw, 15); x.strokeRect(px + 4, Y(.5) - 8, tw, 15);
+    x.fillStyle = C.green; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(lab, px + 9, Y(.5)); }
+  x.textBaseline = 'middle'; x.textAlign = 'left'; x.font = FONT(8.5, 800); let lx = pl + 6; const ly = h - 5;
+  for (const [l, c] of [['● STRAT', C.green], ['● QQQ B&H', C.red], ['● 3× B&H', C.orange]]) { x.fillStyle = c; x.fillText(l, lx, ly); lx += x.measureText(l).width + 12; }
+  const q = (km, p) => { const v = kmQuantile(km, p); return isFinite(v) ? v + 'J' : '>' + Math.round(tMax) + 'J'; };
+  $('sP50').textContent = 'P50 ' + q(R.km.s, .5); $('sP90').textContent = 'P90 ' + q(R.km.s, .9); $('sNow').textContent = 'DD ' + pct(R.bt.st.ddNow);
+  const mx = a => a.length ? Math.max(...a.map(e => e.dur)) : 0, bar = (v, m, c) => `<span class="bar"><i style="width:${Math.min(100, v / m * 100)}%;background:${c}"></i></span>`;
+  const mm = Math.max(mx(R.eps.s), mx(R.eps.q), mx(R.eps.x), 1);
+  $('sstats').innerHTML = `<div><span>STRAT MED</span><b style="color:var(--green)">${q(R.km.s, .5)}</b></div>${bar(kmQuantile(R.km.s, .5), mm, 'var(--green)')}
+    <div><span>QQQ MED</span><b style="color:var(--red)">${q(R.km.q, .5)}</b></div>${bar(kmQuantile(R.km.q, .5), mm, 'var(--red)')}
+    <div><span>3× MED</span><b style="color:var(--orange)">${q(R.km.x, .5)}</b></div>${bar(kmQuantile(R.km.x, .5), mm, 'var(--orange)')}
+    <div><span>MAX STRAT</span><b>${mx(R.eps.s)}J</b></div><div><span>ÉPISODES</span><b>${R.eps.s.length}</b></div>
+    <div><span>PIRE DD</span><b style="color:var(--red)">${pct(R.bt.st.mdd, 0)}</b></div><div><span>EN COURS</span><b>${R.eps.s.some(e => e.cens) ? R.eps.s.find(e => e.cens).dur + 'J' : '—'}</b></div>`;
+}
+
+/* ================================================================== aurora */
+function drawAurora(t = 0) {
+  const g = cv('cv-aurora'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h);
+  const rows = R.tp.rows, N = rows.length, pl = 4, pr = 4, W = w - pl - pr, X = k => pl + k / (N - 1) * W;
+  const yTop = 2, yB = h * .58, bandTop = h * .70, bandBot = h - 15;
+  let vmax = 0; for (const r of rows) vmax = Math.max(vmax, r.buy, r.sell); const ema = (arr, a) => { let e = arr[0]; return arr.map(v => e = a * v + (1 - a) * e); };
+  const sell = rows.map(r => r.sell / vmax), buy = rows.map(r => r.buy / vmax), sellS = ema(sell, .35), buyS = ema(buy, .35);
+  // sell curtain
+  const curtain = (arr, a) => { x.beginPath(); x.moveTo(X(0), yTop); for (let k = 0; k < N; k++) x.lineTo(X(k), yTop + Math.pow(arr[k], .8) * (yB - yTop) * .95); x.lineTo(X(N - 1), yTop); x.closePath();
+    const gr = x.createLinearGradient(0, yTop, 0, yB); gr.addColorStop(0, rgba(C.red, a)); gr.addColorStop(.7, rgba(C.red2, a * .55)); gr.addColorStop(1, rgba(C.red2, 0)); x.fillStyle = gr; x.fill(); };
+  curtain(sellS, .55); curtain(sell, .75);
+  x.strokeStyle = rgba(C.red, .9); x.lineWidth = 1; x.beginPath(); for (let k = 0; k < N; k++) { const y = yTop + Math.pow(sell[k], .8) * (yB - yTop) * .95; k ? x.lineTo(X(k), y) : x.moveTo(X(k), y); } x.stroke();
+  // buy rise
+  const rise = (arr, a) => { x.beginPath(); x.moveTo(X(0), bandTop); for (let k = 0; k < N; k++) x.lineTo(X(k), bandTop - Math.pow(arr[k], .8) * (bandTop - yTop) * .55); x.lineTo(X(N - 1), bandTop); x.closePath();
+    const gr = x.createLinearGradient(0, yB - 40, 0, bandTop); gr.addColorStop(0, rgba(C.green, a)); gr.addColorStop(1, rgba(C.green2, a * .5)); x.fillStyle = gr; x.fill(); };
+  rise(buyS, .35); rise(buy, .45);
+  // volume spikes
+  const spikes = rows.map((r, k) => ({ k, vz: r.vz })).filter(s => s.vz > 2);
+  for (const s of spikes) { const px = X(s.k), top = yTop + Math.max(0, 1 - s.vz / 6) * (yB - yTop) * .5; const gr = x.createLinearGradient(0, top, 0, bandTop); gr.addColorStop(0, rgba(C.white, .95)); gr.addColorStop(.5, rgba(C.green, .8)); gr.addColorStop(1, rgba(C.green, .2));
+    x.strokeStyle = gr; x.lineWidth = 2; x.shadowColor = C.green; x.shadowBlur = 8; x.beginPath(); x.moveTo(px, bandTop); x.lineTo(px, top); x.stroke(); x.shadowBlur = 0; }
+  // CVD
+  const cv0 = rows.map(r => r.cvd), cmin = Math.min(...cv0), cmax = Math.max(...cv0);
+  x.strokeStyle = rgba(C.green, .9); x.lineWidth = 1.2; x.beginPath(); for (let k = 0; k < N; k++) { const y = yB + 18 - (cv0[k] - cmin) / (cmax - cmin || 1) * (h * .3); k ? x.lineTo(X(k), y) : x.moveTo(X(k), y); } x.stroke();
+  // balance line + pulse
+  x.strokeStyle = C.amber; x.lineWidth = 2; x.shadowColor = C.amber; x.shadowBlur = 10; x.beginPath(); x.moveTo(X(0), yB); x.lineTo(X(N - 1), yB); x.stroke(); x.shadowBlur = 0;
+  const pulse = 3 + 2 * Math.sin(t / 300); x.fillStyle = C.amber; x.shadowColor = C.amber; x.shadowBlur = 16; x.beginPath(); x.arc(X(N - 1) - 2, yB, pulse, 0, 7); x.fill(); x.shadowBlur = 0;
+  // regime band
+  x.fillStyle = rgba(C.cyan, .55); x.fillRect(pl, bandTop, W, bandBot - bandTop); x.fillStyle = rgba(C.cyan, .95); x.fillRect(pl, bandTop, W, 2);
+  const chop = ema(rows.map(r => isFinite(r.er) ? Math.max(0, (.3 - r.er) / .3) : 0), .15);
+  x.beginPath(); x.moveTo(X(0), bandTop + 2); for (let k = 0; k < N; k++) x.lineTo(X(k), bandTop + 2 + chop[k] * (bandBot - bandTop - 4)); x.lineTo(X(N - 1), bandTop + 2); x.closePath();
+  const mg = x.createLinearGradient(0, bandTop, 0, bandBot); mg.addColorStop(0, rgba(C.magenta, .95)); mg.addColorStop(1, rgba(C.magenta, .6)); x.fillStyle = mg; x.fill();
+  // annotations
+  x.font = FONT(8.5, 800); x.textBaseline = 'middle';
+  const big = rows.reduce((b, r, k) => r.dollar > b.v ? { v: r.dollar, k, r } : b, { v: 0 });
+  const lab = `${big.r.clv >= 0 ? 'BUY' : 'SELL'} $${compact(big.v)}`; const tw = x.measureText(lab).width + 10; const bx = U.clamp(X(big.k) - tw / 2, 2, w - tw - 2);
+  x.fillStyle = rgba('#000000', .75); x.fillRect(bx, yTop + 6, tw, 15); x.strokeStyle = rgba(C.txt, .5); x.strokeRect(bx, yTop + 6, tw, 15); x.fillStyle = '#fff'; x.textAlign = 'left'; x.fillText(lab, bx + 5, yTop + 13.5);
+  for (const s of spikes.sort((a, b) => b.vz - a.vz).slice(0, 3)) { const l = '+' + s.vz.toFixed(1) + 'σ'; const tw2 = x.measureText(l).width + 8; const lx = U.clamp(X(s.k) - tw2 / 2, 2, w - tw2 - 2);
+    x.fillStyle = rgba(C.red2, .85); x.fillRect(lx, bandTop - 18, tw2, 13); x.fillStyle = '#fff'; x.fillText(l, lx + 4, bandTop - 11.5); }
+  x.font = FONT(8, 500); x.fillStyle = rgba(C.dim, .95); x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  for (let k = 0; k < N; k += 40) x.fillText(dshort(rows[k].d), X(k), h - 3);
+  const c20 = R.tp.cvd20; $('aCvd').textContent = 'CVD 20J ' + (c20 >= 0 ? '+' : '') + compact(c20); $('aCvd').className = 'bdg ' + (c20 >= 0 ? 'g' : 'r');
+  const reg = R.tp.er > .3 ? 'TREND' : 'CHOP'; $('aReg').textContent = 'REGIME ' + reg; $('aEr').textContent = `ER ${R.tp.er.toFixed(2)} · ${reg}`;
+}
+
+/* ================================================================== membrane */
+function drawMembrane(t = 0) {
+  const g = cv('cv-mem'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h);
+  const m = R.mem, rows = m.rows, RN = rows.length, T = m.T;
+  if (!m.zs) m.zs = rows.map(r => { const sd = U.std(r.z) || 1; return r.z.map(v => U.clamp(v / sd, -2.6, 2.6)); });
+  const amp = Math.min(13, h * .05), x0 = 40, baseY = h - 40 - 2.3 * amp, dxT = w * .13, dyT = (baseY - 18 - 2.4 * amp) * .92, W0 = w - x0 - dxT - 16;
+  const P = (r, k) => { const f = r / (RN - 1), sc = 1 - .1 * f; return [x0 + f * dxT + k / (T - 1) * W0 * sc, baseY - f * dyT - m.zs[r][k] * amp * (1 - .3 * f)]; };
+  const scan = RM ? -1 : ((t / 45) % (T + 30)) - 15;
+  x.font = FONT(7.5, 600); x.textBaseline = 'middle';
+  for (let r = RN - 1; r >= 0; r--) {
+    const f = r / (RN - 1), by = baseY - f * dyT; const pts = []; for (let k = 0; k < T; k++) pts.push(P(r, k));
+    x.beginPath(); x.moveTo(pts[0][0], by + 6); for (const p of pts) x.lineTo(p[0], p[1]); x.lineTo(pts[T - 1][0], by + 6); x.closePath(); x.fillStyle = rgba(C.panel, .78); x.fill();
+    if (r < RN - 1) for (let k = 0; k < T; k += 5) { const a = pts[k], b = P(r + 1, k); x.strokeStyle = rgba(rows[r].z[k] >= 0 ? C.green : C.red, .12); x.lineWidth = 1; x.beginPath(); x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); x.stroke(); }
+    for (let k = 1; k < T; k++) { const z = rows[r].z[k], hl = Math.abs(k - scan) < 4; const col = z >= 0 ? (r % 3 === 0 ? C.cyan : C.green) : (r % 3 === 0 ? C.magenta : C.red);
+      x.strokeStyle = hl ? rgba(C.white, .95) : rgba(col, .35 + .55 * (1 - f)); x.lineWidth = hl ? 1.6 : 1 + (1 - f) * .6; x.beginPath(); x.moveTo(pts[k - 1][0], pts[k - 1][1]); x.lineTo(pts[k][0], pts[k][1]); x.stroke(); }
+    if (r % 5 === 0) { x.fillStyle = rgba(C.dim, .95); x.textAlign = 'right'; x.fillText(rows[r].h + 'J', pts[0][0] - 5, by); }
+  }
+  x.strokeStyle = rgba(C.white, .85); x.lineWidth = 2; x.beginPath(); x.moveTo(x0, baseY + 4); x.lineTo(x0 + W0, baseY + 4); x.stroke();
+  const lp = P(0, T - 1); x.fillStyle = C.amber; x.shadowColor = C.amber; x.shadowBlur = 14; x.beginPath(); x.arc(lp[0], lp[1], 3, 0, 7); x.fill(); x.shadowBlur = 0;
+  const bx = x0, bw = w * .38, bh = 22, byy = h - 26; x.fillStyle = rgba(C.dim, .9); x.textAlign = 'left'; x.fillText('VOL RÉALISÉE 20J', bx, byy - 5);
+  const vmax = Math.max(...m.vb.filter(isFinite)); const n = m.vb.length;
+  for (let k = 0; k < n; k++) { const v = m.vb[k]; if (!isFinite(v)) continue; const hh = v / vmax * bh; x.fillStyle = rgba(v > .3 ? C.red : C.green, .7); x.fillRect(bx + k / n * bw, byy + bh - hh, Math.max(1, bw / n - .4), hh); }
+  x.textAlign = 'right'; x.font = FONT(9, 700); x.fillStyle = C.txt; const rx = w - 10;
+  x.fillText(`σ20 ${(m.v20 * 100).toFixed(1)}%`, rx, h - 20); x.fillStyle = C.dim; x.fillText(`σ60 ${(m.v60 * 100).toFixed(1)}%`, rx, h - 7); x.fillText(`DISP ${m.disp.toFixed(2)}`, rx - 96, h - 7);
+  x.fillStyle = m.drive >= 0 ? C.green : C.red; x.fillText(`DRIVE ${m.drive >= 0 ? '+' : ''}${m.drive.toFixed(2)}σ`, rx - 96, h - 20);
+  $('mAlign').textContent = `ALIGN ${Math.round(m.align * 100)}%`; const ms = $('mState'); ms.textContent = 'STATE ' + m.state; ms.className = 'bdg ' + (m.state === 'STRESSED' || m.state === 'BEARISH' ? 'r' : m.state === 'TRENDING' ? 'g' : 'a');
+  $('mDrive').textContent = `${m.pos}/${RN} HORIZONS > 0`;
+}
+
+/* ================================================================== vortex */
+let PARTS = null;
+function initParticles() { const rng = U.rng(42), mk = R.ku.mk; PARTS = [];
+  for (let i = 0; i < 760; i++) { const m = mk[i % mk.length]; const g = () => { let s = 0; for (let k = 0; k < 4; k++) s += rng(); return (s - 2) / 2; };
+    PARTS.push({ m, r: .3 + Math.pow(rng(), .7) * .7, a: m.th + g() * (1.2 + (1 - R.ku.r) * 2.2), sp: .4 + rng() * .5, len: .08 + rng() * .25 }); } }
+function renderVortex() {
+  const K = R.ku, mk = K.mk.slice().sort((a, b) => b.align - a.align), half = Math.ceil(mk.length / 2);
+  const row = m => { const c = m.align > Math.SQRT1_2 ? 'var(--green)' : m.align > 0 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="vl" title="phase ${(m.th * 180 / Math.PI).toFixed(0)}° · 1J ${pct(m.ret1, 1)}"><span>${m.k}</span><span class="vb"><i style="width:${Math.round((m.align + 1) / 2 * 100)}%;background:${c}"></i></span><u style="background:${c}"></u></div>`; };
+  $('vL').innerHTML = '<h4>EN PHASE · ' + half + '</h4>' + mk.slice(0, half).map(row).join('');
+  $('vR').innerHTML = '<h4>HORS PHASE · ' + (mk.length - half) + '</h4>' + mk.slice(half).map(row).join('');
+  const r = K.r, reg = r >= .7 ? ['HERD', 'RISQUE SYSTÉMIQUE · RÉDUIRE'] : r >= .4 ? (R.tp.er > .3 ? ['TREND', 'RISK-ON · TAILLE PLEINE'] : ['MIXED', 'SÉLECTIF · DEMI-TAILLE']) : ['DISPERSED', 'STOCK-PICKING · PEU DE BÊTA'];
+  $('vInfo').innerHTML = `<div class="box"><h4>FIELD</h4><div class="kv"><span>COUPLING K</span><b>${K.K.toFixed(2)}</b></div><div class="kv"><span>LOCKED</span><b style="color:var(--green)">${K.locked}/${K.mk.length}</b></div><div class="kv"><span>DISPERSION</span><b style="color:var(--red)">${(1 - r).toFixed(2)}</b></div></div>
+    <div class="box"><h4>COHERENCE · 30J</h4><div class="vcoh"><canvas id="cv-coh"></canvas></div></div>
+    <div class="box"><h4>REGIME</h4><div class="reg" style="color:${reg[0] === 'HERD' ? 'var(--red)' : reg[0] === 'DISPERSED' ? 'var(--amber)' : 'var(--green)'}">${reg[0]}</div><div class="regs">${reg[1]}</div></div>
+    <div class="box"><h4>LAST IMPULSE</h4><div class="kv"><b>${K.imp.k}</b><b class="${cls(K.imp.ret1)}">${pct(K.imp.ret1, 1)}</b></div></div>`;
+  $('vK').textContent = 'K ' + K.K.toFixed(2); $('vSync').textContent = 'SYNC ' + Math.round(r * 100) + '%';
+  $('vSynced').textContent = r >= .6 ? 'SYNCHRONIZED' : r >= .35 ? 'PARTIAL LOCK' : 'DESYNCHRONIZED';
+  const g = cv('cv-coh'); if (g) { const { x, w, h } = g; const hs = K.hist, n = hs.length; for (let i = 0; i < n; i++) { const v = isFinite(hs[i]) ? hs[i] : 0; x.fillStyle = rgba(v >= .6 ? C.green : v >= .35 ? C.amber : C.red, .85); x.fillRect(i / n * w, h - v * h, w / n - 1, v * h); } }
+}
+function drawVortex(dt = 0) {
+  const g = cv('cv-vortex'); if (!g) return; const { x, w, h } = g, K = R.ku;
+  if (!PARTS) initParticles();
+  x.fillStyle = rgba(C.panel, RM || dt === 0 ? 1 : .22); x.fillRect(0, 0, w, h);
+  const cx = w * .55, cy = h / 2, Rm = Math.min(w * .42, h * .42);
+  S.rot += dt * (.25 + Math.max(0, K.K) * .6);
+  x.lineCap = 'round';
+  for (let i = 0; i < 46; i++) { const a = Math.PI * (.62 + i / 46 * .76), r0 = Rm * 1.02; const sx = cx + Math.cos(a) * r0, sy = cy + Math.sin(a) * r0;
+    x.strokeStyle = rgba(i % 3 ? C.green : C.amber, .05 + (i % 5) * .012); x.lineWidth = 1; x.beginPath(); x.moveTo(sx, sy); x.quadraticCurveTo(cx - Rm * 1.4, cy + (sy - cy) * .6, 0, cy + (sy - cy) * 1.5 + Math.sin(S.rot + i) * 6); x.stroke(); }
+  for (const p of PARTS) {
+    p.a += dt * p.sp * (1.35 - p.r * .7) * (.6 + K.r);
+    const a = p.a + S.rot, rr = p.r * Rm * .92, al = p.m.align;
+    const col = al > Math.SQRT1_2 ? C.green : al > .2 ? C.amber : al > -.3 ? C.orange : C.red;
+    x.strokeStyle = rgba(col, .25 + .45 * p.r); x.lineWidth = .8 + p.r * 1.2;
+    x.beginPath(); x.arc(cx, cy, rr, a - p.len, a); x.stroke();
+  }
+  x.lineCap = 'butt';
+  x.strokeStyle = C.green; x.lineWidth = 5; x.shadowColor = C.green; x.shadowBlur = 18; x.beginPath(); x.arc(cx, cy, Rm * 1.02, 0, 7); x.stroke(); x.shadowBlur = 0;
+  x.strokeStyle = rgba(C.green, .5); x.lineWidth = 1; x.beginPath(); x.arc(cx, cy, Rm * 1.09, 0, 7); x.stroke();
+  for (let k = 0; k < 72; k++) { const a = k / 72 * Math.PI * 2, big = k % 6 === 0, r1 = Rm * 1.09, r2 = Rm * (big ? 1.17 : 1.12);
+    x.strokeStyle = rgba(C.green, big ? .9 : .45); x.lineWidth = big ? 2 : 1; x.beginPath(); x.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); x.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2); x.stroke(); }
+  x.strokeStyle = rgba(C.amber, .95); x.lineWidth = 2; x.shadowColor = C.amber; x.shadowBlur = 8; x.beginPath(); x.arc(cx, cy, Rm * .74, 0, 7); x.stroke(); x.shadowBlur = 0;
+  const na = K.psi + S.rot; x.strokeStyle = C.amber; x.lineWidth = 2; x.beginPath(); x.moveTo(cx, cy); x.lineTo(cx + Math.cos(na) * Rm * .74, cy + Math.sin(na) * Rm * .74); x.stroke();
+  x.fillStyle = rgba(C.bg, .88); x.beginPath(); x.arc(cx, cy, Rm * .24, 0, 7); x.fill();
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = FONT(7.5, 700); x.fillStyle = C.dim; x.fillText('COHERENCE', cx, cy - Rm * .1);
+  x.font = FONT(Math.max(16, Rm * .2), 800); x.fillStyle = K.r >= .6 ? C.red : C.green; x.shadowColor = x.fillStyle; x.shadowBlur = 10; x.fillText(Math.round(K.r * 100) + '%', cx, cy + Rm * .06); x.shadowBlur = 0;
+  x.font = FONT(8, 700); x.fillStyle = C.green; x.fillText(`● PHASE-LOCKED ${K.locked}/${K.mk.length} · ψ ${((K.psi * 180 / Math.PI + 360) % 360).toFixed(0)}°`, cx, Math.min(h - 8, cy + Rm * 1.27));
+}
+
+/* ================================================================== ruin cone */
+function drawRuin() {
+  const g = cv('cv-ruin'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h);
+  const mc = R.mc, pl = 46, pr = 74, pt = 12, pb = 18, W = w - pl - pr, Hh = h - pt - pb, ruin = (+S.P.ruin || 50) / 100;
+  const lo = Math.log(Math.max(.08, U.q(mc.ts, .01) * .9, (1 - ruin) * .8)), hi = Math.log(U.q(mc.ts, .985) * 1.05);
+  const X = t => pl + t / mc.H * W, Y = v => pt + (hi - Math.log(Math.max(v, 1e-6))) / (hi - lo) * Hh;
+  const ry = Y(1 - ruin);
+  x.fillStyle = rgba(C.red2, .55); x.fillRect(pl, ry, W + pr - 2, h - pb - ry);
+  x.fillStyle = rgba(C.red, .9); x.fillRect(pl, ry, W, 1.5);
+  const tShow = Math.floor(mc.H * U.clamp(S.reveal, 0, 1));
+  x.lineWidth = .8;
+  for (let p = 0; p < mc.paths.length; p++) {
+    const path = mc.paths[p], term = path[mc.H], ru = mc.ruinF[p];
+    const col = ru ? C.red : term < 1 ? C.orange : term > U.q(mc.ts, .75) ? C.white : C.green;
+    x.strokeStyle = rgba(col, ru ? .3 : col === C.white ? .14 : .2);
+    x.beginPath(); x.moveTo(X(0), Y(1)); for (let t = 2; t <= tShow; t += 2) x.lineTo(X(t), Y(path[t])); x.stroke();
+  }
+  x.strokeStyle = rgba(C.bg, .9); x.lineWidth = 4; x.beginPath(); mc.bands.forEach((b, i) => { if (b.t > tShow) return; i ? x.lineTo(X(b.t), Y(b.q50)) : x.moveTo(X(b.t), Y(b.q50)); }); x.stroke();
+  x.strokeStyle = C.green2; x.lineWidth = 2.2; x.beginPath(); mc.bands.forEach((b, i) => { if (b.t > tShow) return; i ? x.lineTo(X(b.t), Y(b.q50)) : x.moveTo(X(b.t), Y(b.q50)); }); x.stroke();
+  x.fillStyle = rgba(C.bg, .35); x.fillRect(X(mc.H * .72), pt, W * .28, Hh);
+  x.strokeStyle = C.amber; x.lineWidth = 2; x.beginPath(); x.moveTo(pl - 2, pt - 6); x.lineTo(pl - 2, h - pb); x.stroke();
+  x.font = FONT(8.5, 700); x.textAlign = 'right'; x.textBaseline = 'middle';
+  for (const v of [.25, .5, .75, 1, 1.5, 2, 3, 4, 6, 8, 12]) { const y = Y(v); if (y < pt - 2 || y > h - pb) continue; x.fillStyle = rgba(C.amber, .9); x.fillText(v + '×', pl - 6, y); x.strokeStyle = rgba(C.dim, .08); x.lineWidth = 1; x.beginPath(); x.moveTo(pl, y); x.lineTo(pl + W, y); x.stroke(); }
+  const sy = Y(1); x.fillStyle = rgba(C.green2, .9); x.fillRect(pl, sy - 7, 40, 14); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('NOW', pl + 20, sy);
+  const nb = 14, bins = new Array(nb).fill(0), bRu = new Array(nb).fill(0);
+  for (let p = 0; p < mc.N; p++) { const v = Math.log(Math.max(mc.term[p], 1e-6)); const b = U.clamp(Math.floor((hi - v) / (hi - lo) * nb), 0, nb - 1); bins[b]++; if (mc.ruinF[p]) bRu[b]++; }
+  const bmax = Math.max(...bins), bh = Hh / nb;
+  for (let b = 0; b < nb; b++) { const y = pt + b * bh, len = bins[b] / bmax * (pr - 8), mid = Math.exp(hi - (b + .5) / nb * (hi - lo));
+    const col = mid < 1 - ruin ? C.red : mid < 1 ? C.orange : C.green; x.fillStyle = rgba(col, .85); x.fillRect(w - 4 - len, y + 1, len, bh - 2);
+    if (bins[b] / mc.N >= .03 && bh > 10) { x.fillStyle = '#0b0f17'; x.font = FONT(7.5, 800); x.textAlign = 'right'; x.fillText(Math.round(bins[b] / mc.N * 100) + '%', w - 7, y + bh / 2); } }
+  x.font = FONT(8, 600); x.fillStyle = rgba(C.dim, .95); x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  const yrs = mc.H / 252; for (let k = 0; k <= 4; k++) { const t = mc.H * k / 4; x.fillText(k === 0 ? 'T0' : yrs >= 2 ? (yrs * k / 4).toFixed(1).replace('.0', '') + 'A' : Math.round(12 * yrs * k / 4) + 'M', X(t), h - 4); }
+  $('rStats').innerHTML = `${nf0.format(mc.N)} TRAJ. · BLOC ${S.P.block}J · MÉD <b>×${mc.med.toFixed(2)}</b> · P5 ×${mc.p05.toFixed(2)} · P(PERTE) ${pct(mc.pLoss, 0, false)}`;
+  x.fillStyle = C.red; x.textAlign = 'right'; x.font = FONT(8, 800); x.fillText(`RUIN · DD ≥ ${S.P.ruin}%`, pl + W - 4, ry + 11);
+  const rp = $('rP'); rp.textContent = `P(RUIN) ${(mc.pRuin * 100).toFixed(2)}%`; rp.className = 'bdg ' + (mc.pRuin < .05 ? 'g' : mc.pRuin < .15 ? 'a' : 'r');
+}
+
+/* ================================================================== analog matcher */
+function drawAnalog(t = 0) {
+  const g = cv('cv-analog'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h); const A = R.an;
+  const bcH = 13, pl = 8, pr = 54, pt = bcH + 30, pb = 20, W = w - pl - pr, Hh = h - pt - pb;
+  const nb = A.barcode.length; for (let b = 0; b < nb; b++) { const v = A.barcode[b]; const col = v > .8 ? C.green : v > .6 ? rgba(C.green, .55) : v > .3 ? rgba(C.violet, .5) : rgba(C.dim, .35);
+    x.fillStyle = col; x.fillRect(pl + b / nb * W, 2, W / nb + .5, bcH); }
+  if (!RM) { const sx = pl + ((t / 22) % W); x.fillStyle = rgba(C.white, .85); x.fillRect(sx, 1, 2, bcH + 2); }
+  x.font = FONT(8, 800); x.fillStyle = rgba('#000000', .7); x.fillRect(pl, 2, 128, bcH); x.fillStyle = C.txt; x.textBaseline = 'middle'; x.textAlign = 'left'; x.fillText(`SCAN · ${compact(A.scanned)} FENÊTRES`, pl + 4, 2 + bcH / 2);
+  const total = A.W + A.H, X = k => pl + (k + A.W - 1) / (total - 1) * W;
+  const past = A.pick.map(p => p.z.map(z => Math.exp(A.sdCur * (z - p.z[A.W - 1])) - 1));
+  let lo = Math.min(...A.curPct), hi = Math.max(...A.curPct); for (const p of A.pick) for (const v of p.fwd) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  const pd = (hi - lo) * .1; lo -= pd; hi += pd; const Y = v => pt + (hi - v) / (hi - lo) * Hh;
+  x.fillStyle = rgba(C.green, .06); x.fillRect(X(0), pt - 8, X(A.H) - X(0), Hh + 8);
+  x.beginPath(); for (let j = 0; j <= A.H; j++) x.lineTo(X(j), Y(Math.max(...A.pick.map(p => p.fwd[j])))); for (let j = A.H; j >= 0; j--) x.lineTo(X(j), Y(Math.min(...A.pick.map(p => p.fwd[j])))); x.closePath(); x.fillStyle = rgba(C.green, .13); x.fill();
+  const dl = (v, col, lab) => { const y = Y(v); x.strokeStyle = col; x.setLineDash([5, 4]); x.lineWidth = 1; x.beginPath(); x.moveTo(pl, y); x.lineTo(pl + W, y); x.stroke(); x.setLineDash([]); x.font = FONT(8.5, 800); x.fillStyle = col; x.textAlign = 'left'; x.fillText(lab, pl + 4, y - 7); };
+  dl(A.mfe, C.amber, `TARGET ${pct(A.mfe, 1)}`); dl(A.mae, C.red, `STOP ${pct(A.mae, 1)}`);
+  past.forEach(pp => { x.strokeStyle = rgba(C.violet, .28); x.lineWidth = 1; x.beginPath(); pp.forEach((v, k) => { const px = X(k - A.W + 1), py = Y(v); k ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); });
+  x.strokeStyle = '#e9e4ff'; x.lineWidth = 2.6; x.shadowColor = C.violet; x.shadowBlur = 12; x.beginPath(); A.curPct.forEach((v, k) => { const px = X(k - A.W + 1), py = Y(v); k ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); x.shadowBlur = 0;
+  const labs = [];
+  A.pick.forEach((p, i) => { const col = p.final > .02 ? (i % 2 ? C.cyan : C.green) : p.final >= 0 ? C.cyan : (i % 2 ? C.magenta : C.violet);
+    x.strokeStyle = col; x.lineWidth = 1.5; x.beginPath(); p.fwd.forEach((v, j) => { const px = X(j), py = Y(v); j ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); labs.push({ y: Y(p.final), v: p.final, col }); });
+  labs.sort((a, b) => a.y - b.y); for (let i = 1; i < labs.length; i++) if (labs[i].y - labs[i - 1].y < 12) labs[i].y = labs[i - 1].y + 12;
+  x.font = FONT(8, 800); x.textAlign = 'left'; for (const l of labs) { const s = pct(l.v, 1); const tw = x.measureText(s).width + 6; x.fillStyle = rgba('#05070d', .85); x.fillRect(pl + W + 3, l.y - 6, tw, 12); x.strokeStyle = l.col; x.lineWidth = 1; x.strokeRect(pl + W + 3, l.y - 6, tw, 12); x.fillStyle = l.col; x.fillText(s, pl + W + 6, l.y + .5); }
+  const nx = X(0); x.strokeStyle = C.amber; x.lineWidth = 2; x.beginPath(); x.moveTo(nx, pt - 14); x.lineTo(nx, pt + Hh + 4); x.stroke();
+  x.fillStyle = C.amber; x.fillRect(nx - 16, pt - 24, 32, 13); x.fillStyle = '#14100a'; x.textAlign = 'center'; x.font = FONT(8.5, 800); x.fillText('NOW', nx, pt - 17); x.fillStyle = C.amber; x.textAlign = 'left'; x.fillText('WHAT HAPPENED NEXT →', nx + 22, pt - 17);
+  x.fillStyle = C.txt; x.font = FONT(8.5, 800); x.fillText('CURRENT WINDOW · 64 BARS · Z-SCORED', pl + 4, pt - 17);
+  x.font = FONT(8, 600); x.fillStyle = C.dim; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+  for (const k of [-64, -48, -32, -16, 0]) x.fillText(k, X(k), h - 6);
+  x.fillStyle = C.green; x.fillText(`MEDIAN ${pct(A.median, 1)} · ${A.H} BARS`, (X(0) + X(A.H)) / 2, pt + Hh - 2);
+  x.fillStyle = C.amber; x.font = FONT(8, 800); x.fillText(`+${A.H} PROJECTED · K-NN`, (X(0) + X(A.H)) / 2, h - 6);
+}
+function renderAnalogStats() {
+  const A = R.an; $('aDtw').textContent = 'DTW ' + A.dtwBest.toFixed(3); $('aScan').textContent = `SCAN ${nf0.format(A.scanned)} · ${Math.round(A.ms)}MS`;
+  $('astats').innerHTML = `<div class="abox m"><span><i></i>MATCH</span><b>${A.match.toFixed(2)}</b></div>
+    <div class="abox u"><span><i></i>UP</span><b>${A.up}</b></div><div class="abox d"><span><i></i>DOWN</span><b>${A.down}</b></div>
+    <div class="akv">MEDIAN<b class="am">${pct(A.median, 1)}</b> FWD</div><div class="akv">HORIZON<b>${A.H}</b> BARS</div>
+    <div class="akv" style="font-size:8px;line-height:1.6">${A.pick.slice(0, 4).map(p => `${p.k} ${p.date.slice(2)} · ρ ${p.corr.toFixed(2)}`).join('<br>')}</div>`;
+}
+
+/* ================================================================== bayes */
+function drawBayes() {
+  const g = cv('cv-bayes'); if (!g) return; const { x, w, h } = g; x.clearRect(0, 0, w, h); const B = R.by;
+  const pl = 10, pr = 10, pt = 34, pb = 56, W = w - pl - pr, Hh = h - pt - pb, p0 = .2, p1 = 1;
+  const X = p => pl + (p - p0) / (p1 - p0) * W; const G = 220; const pdf = (a, b) => { const o = []; for (let i = 0; i <= G; i++) { const p = p0 + (p1 - p0) * i / G; o.push([p, U.betaPdf(p, a, b)]); } return o; };
+  const pr0 = pdf(B.a0, B.b0), li = pdf(B.lik.a, B.lik.b), po = pdf(B.a1, B.b1); const mx = Math.max(...pr0.map(v => v[1]), ...li.map(v => v[1]), ...po.map(v => v[1]));
+  const Y = v => pt + Hh - v / mx * Hh * .92;
+  const fill = (arr, col, a, line, dash) => { x.beginPath(); x.moveTo(X(p0), Y(0)); for (const [p, v] of arr) x.lineTo(X(p), Y(v)); x.lineTo(X(p1), Y(0)); x.closePath(); if (a) { x.fillStyle = rgba(col, a); x.fill(); }
+    if (line) { x.strokeStyle = col; x.lineWidth = 1.6; x.setLineDash(dash || []); x.beginPath(); arr.forEach(([p, v], i) => i ? x.lineTo(X(p), Y(v)) : x.moveTo(X(p), Y(v))); x.stroke(); x.setLineDash([]); } };
+  for (let k = 2; k <= 10; k++) { const px = X(k / 10); x.strokeStyle = rgba(C.dim, .1); x.beginPath(); x.moveTo(px, pt); x.lineTo(px, pt + Hh); x.stroke(); }
+  fill(pr0, C.dim, .35, true, [3, 3]); fill(po, C.green, .45, false); x.shadowColor = C.green; x.shadowBlur = 10; fill(po, C.green, 0, true); x.shadowBlur = 0; fill(li, C.orange, 0, true);
+  const ed = (B.post - B.p0) * 100, up = ed >= 0;
+  x.fillStyle = rgba(up ? C.green : C.red, .14); x.fillRect(pl, 4, W, 22); x.strokeStyle = rgba(up ? C.green : C.red, .6); x.strokeRect(pl + .5, 4.5, W - 1, 21);
+  x.font = FONT(8.5, 800); x.fillStyle = up ? C.green : C.red; x.textAlign = 'left'; x.textBaseline = 'middle'; x.fillText(`POSTERIOR ${up ? '↑' : '↓'} ${ed >= 0 ? '+' : ''}${ed.toFixed(1)} PTS · EVIDENCE ${Math.abs(ed) < 1 ? 'NEUTRAL' : up ? 'CONFIRMS' : 'CONTRADICTS'}`, pl + 8, 15);
+  const vl = (p, col, lab, y) => { const px = X(p); x.strokeStyle = col; x.setLineDash([3, 3]); x.beginPath(); x.moveTo(px, pt - 4); x.lineTo(px, pt + Hh); x.stroke(); x.setLineDash([]);
+    if (lab) { x.font = FONT(8, 800); const tw = x.measureText(lab).width + 8; x.fillStyle = rgba('#000000', .7); x.fillRect(px + 3, y - 7, tw, 13); x.strokeStyle = col; x.strokeRect(px + 3, y - 7, tw, 13); x.fillStyle = col; x.textAlign = 'left'; x.fillText(lab, px + 7, y); } };
+  vl(B.p0, rgba(C.txt, .6), '', 0); vl(B.post, C.amber, `EDGE ${ed >= 0 ? '+' : ''}${ed.toFixed(1)}`, pt + 10);
+  x.font = FONT(8, 600); x.fillStyle = C.dim; x.textAlign = 'center'; x.textBaseline = 'alphabetic'; for (let k = 2; k <= 10; k += 2) x.fillText(k * 10 + '%', X(k / 10), pt + Hh + 11);
+  let lx = pl + 4; const ly = pt + Hh - 8; x.textAlign = 'left'; x.font = FONT(7.5, 800);
+  for (const [l, c] of [['PRIOR', C.dim], ['LIKELIHOOD', C.orange], ['POSTERIOR', C.green]]) { x.fillStyle = rgba('#000000', .55); const tw = x.measureText(l).width + 16; x.fillRect(lx, ly - 7, tw, 13); x.fillStyle = c; x.fillRect(lx + 3, ly - 3, 6, 6); x.fillText(l, lx + 12, ly + .5); lx += tw + 4; }
+  const hy = h - 30, hh = 24, n = B.hist.length; x.fillStyle = C.dim; x.font = FONT(7, 700); x.fillText('POSTERIOR · 40 DERNIÈRES SÉANCES', pl, hy - 6);
+  for (let i = 0; i < n; i++) { const v = B.hist[i], bh = U.clamp((v - .4) / .4, .08, 1) * hh; x.fillStyle = v >= .68 ? C.green : v >= .6 ? rgba(C.dim, .8) : v >= .52 ? C.orange : C.red; if (i === n - 1) x.fillStyle = C.amber; x.fillRect(pl + i / n * W, hy + hh - bh, W / n - 2, bh); }
+}
+function renderBayesSide() {
+  const B = R.by, mx = Math.max(...B.ev.map(e => Math.abs(e.llr)), .01);
+  $('bev').innerHTML = `<h4>EVIDENCE · LOG-ODDS (λ ${B.lam.toFixed(2)})</h4>` + B.ev.map(e => `<div class="ev"><span>${e.k} <b style="color:${e.v ? 'var(--txt)' : 'var(--dim)'}">${e.v ? 'OUI' : 'NON'}</b></span><b class="${cls(e.llr)}">${e.llr >= 0 ? '+' : '−'}${Math.abs(e.llr).toFixed(3)}</b><span class="eb"><i style="left:0;width:${Math.abs(e.llr) / mx * 100}%;background:${e.llr >= 0 ? 'var(--green)' : 'var(--red)'}"></i></span></div>`).join('');
+  $('bEv').textContent = `EV ${pct(B.EV, 2)} / 21J`; $('bEv').className = 'bdg ' + (B.EV >= 0 ? 'g' : 'r');
+  const ed = (B.post - B.p0) * 100; $('bEdge').textContent = `EDGE ${ed >= 0 ? '+' : ''}${ed.toFixed(1)} PTS`;
+  $('bSub').textContent = `PRIOR : ${nf0.format(B.T)} SÉANCES · VRAISEMBLANCE : ${B.F.length} SIGNAUX · NAÏF TEMPÉRÉ`;
+  $('bUpd').textContent = 'UPD ' + dshort(M.d[M.n - 1]) + ' · EOD';
+  const k = Math.max(0, B.kelly / 2);
+  $('bfoot').innerHTML = `<span>PRIOR<b>${(B.p0 * 100).toFixed(0)}%</b></span><span>POSTERIOR<b style="color:var(--green)">${(B.post * 100).toFixed(0)}%</b></span><span>KL<b>${B.kl.toFixed(2)}</b></span><span>KELLY ½<b style="color:var(--amber)">${Math.min(25, k * 100).toFixed(0)}%</b></span><span class="r">CONF<b>${B.conf.toFixed(2)}</b></span>`;
+}
+
+/* ================================================================== agent + footer */
+let agentMsgs = [], agentIdx = 0, typer = null;
+function buildAgent() {
+  const n = M.n, bt = R.bt, d200 = M.c[n - 1] / M.sma200[n - 1] - 1, reg = R.tp.er > .3 ? 'TREND' : 'CHOP';
+  const inPos = bt.ex[bt.s1] > 0, since = bt.open ? M.d[bt.open.i] : null;
+  const top = BR.rows.slice().sort((a, b) => b.vj - a.vj)[0], bot = BR.rows.slice().sort((a, b) => a.vj - b.vj)[0], best = BR.rows.slice().sort((a, b) => b.score - a.score)[0];
+  agentMsgs = [
+    `scan <b>QQQ/1D</b> · Δsma200 <em>${pct(d200, 1)}</em> · regime <em>${reg}</em> · entropy <b>${R.pe.toFixed(2)}</b>`,
+    `signal <b>${STRATS[S.P.strat].short}</b> → ${inPos ? `<em>LONG ${S.P.lev}×</em> depuis ${since ? dfr(since) : '—'} (${bt.open ? bt.open.days : 0}j, ${pct(bt.open ? bt.open.ret : 0, 1)})` : '<i>CASH</i>'} · stop si clôture < <b>${nf2.format(M.sma200[n - 1] * (1 - S.P.band / 100))}</b>`,
+    `analog k=${R.an.K} · up <em>${R.an.up}</em> / down <i>${R.an.down}</i> · median <b>${pct(R.an.median, 1)}</b> @${R.an.H} · kelly ½ <b>${Math.min(25, Math.max(0, R.by.kelly / 2) * 100).toFixed(0)}%</b>`,
+    `brvm breadth <em>${BR.upN}▲</em> <i>${BR.dnN}▼</i> · top <b>${top.t}</b> <em>${pp(top.vj)}</em> · worst <b>${bot.t}</b> <i>${pp(bot.vj)}</i> · score #1 <b>${best.t}</b> ${best.score}`,
+    `vortex sync <b>${Math.round(R.ku.r * 100)}%</b> · K ${R.ku.K.toFixed(2)} · locked ${R.ku.locked}/${R.ku.mk.length} · impulse <b>${R.ku.imp.k}</b> ${pct(R.ku.imp.ret1, 1)}`,
+    `monte carlo ${nf0.format(R.mc.N)} paths · P(DD≥${S.P.ruin}%) <i>${(R.mc.pRuin * 100).toFixed(1)}%</i> · médiane ×<b>${R.mc.med.toFixed(2)}</b> · P(perte) ${pct(R.mc.pLoss, 0, false)}`,
+    `bayes P(↑21j) <em>${(R.by.post * 100).toFixed(0)}%</em> vs prior ${(R.by.p0 * 100).toFixed(0)}% · EV ${pct(R.by.EV, 2)} · membrane <b>${R.mem.state}</b>`
+  ];
+}
+function typeAgent() {
+  clearInterval(typer); const el = $('agentMsg'); const html = agentMsgs[agentIdx % agentMsgs.length]; agentIdx++;
+  if (RM) { el.innerHTML = html + '<span class="cur"></span>'; return; }
+  const tmp = document.createElement('div'); tmp.innerHTML = html; const plain = tmp.textContent; let k = 0;
+  typer = setInterval(() => { k += 3; if (k >= plain.length) { clearInterval(typer); el.innerHTML = html + '<span class="cur"></span>'; } else el.textContent = plain.slice(0, k); }, 16);
+}
+function renderFooter() {
+  const bt = R.bt, contacts = BR.rows.filter(r => Math.abs(r.vj) >= 3).length, ruin = +S.P.ruin;
+  const items = [`DD GUARD <b>${bt.st.ddNow > -ruin / 100 ? 'ARMED' : 'TRIGGERED'}</b>`, `CB GUARD <b>ARMED</b> (S&amp;P L1+L2 → EXIT)`, `ANALOG MATCH <b>${R.an.match.toFixed(2)}</b>`,
+    `KELLY ½ · CAP <b>${Math.min(25, Math.max(0, R.by.kelly / 2) * 100).toFixed(0)}%</b>`, `SONAR CONTACTS <b>${contacts}</b>`, `POSTERIOR <b>${(R.by.post * 100).toFixed(0)}%</b>`,
+    `SLIPPAGE <b>${S.P.slip}BP</b>`, `EXPOSURE <b>${Math.round(bt.st.expo * 100)}%</b>`, `LATENCY <b>${Math.round(R.btMs)}MS</b>`, `DATA <b>${dfr(M.d[M.n - 1])}</b>`];
+  const html = items.map(s => `<span>${s}</span><span style="color:var(--dim2)">·</span>`).join('');
+  $('foot').innerHTML = html + html;
+  $('src').innerHTML = `<span>QQQ &amp; 21 marchés : Yahoo Finance quotidien${LIVE ? ' + flux 15 min' : ''} · BRVM : ${esc(BR.src)} · Taux Fed approx. · Levier simulé (3× ≈ TQQQ, écart &lt; 3 pts/an 2018-2025)</span><span>Outil d'analyse, pas un conseil en investissement.</span>`;
+}
+
+/* ================================================================== drawer */
+function fillDrawer() {
+  const P = S.P; $('fStrat').innerHTML = Object.entries(STRATS).map(([k, v]) => `<option value="${k}" ${k === P.strat ? 'selected' : ''}>${v.name}</option>`).join('');
+  const set = (id, v) => { $(id).value = v; };
+  set('fN', P.n); set('fFast', P.fast); set('fBand', P.band); set('fTv', P.tv); set('fLev', P.lev); set('fExec', P.exec); set('fStart', P.start); set('fCap', P.cap);
+  set('fFee', P.fee); set('fSlip', P.slip); set('fSpread', P.spread); set('fEr', P.er); set('fCash', P.cash); set('fRuin', P.ruin); set('fBlock', P.block);
+  stratFields();
+}
+function stratFields() { const st = STRATS[$('fStrat').value]; $('fDesc').textContent = st.desc;
+  $('lN').hidden = !st.uses.includes('n'); $('lFast').hidden = !st.uses.includes('fast'); $('lBand').hidden = !st.uses.includes('band'); $('lTv').hidden = !st.uses.includes('tv'); }
+function readDrawer() { const g = id => $(id).value; return { strat: g('fStrat'), n: +g('fN') || 200, fast: +g('fFast') || 50, band: +g('fBand') || 0, tv: +g('fTv') || 30, lev: +g('fLev'), exec: g('fExec'),
+  start: g('fStart') || DEFAULT_P.start, cap: Math.max(100, +g('fCap') || 10000), fee: +g('fFee') || 0, slip: +g('fSlip') || 0, spread: +g('fSpread') || 0, er: +g('fEr') || 0, cash: +g('fCash'), ruin: U.clamp(+g('fRuin') || 50, 10, 95), block: U.clamp(+g('fBlock') || 20, 1, 120) }; }
+function renderDrawerResults() {
+  const bt = R.bt, a = bt.st, b = bt.stB, c = bt.stB3;
+  const rows = [['CAGR', s => pct(s.cagr)], ['TOTAL', s => pct(s.total, 0)], ['VOLATILITÉ', s => pct(s.vol, 1, false)], ['SHARPE', s => s.sharpe.toFixed(2)], ['SORTINO', s => s.sortino.toFixed(2)],
+    ['MAX DD', s => pct(s.mdd)], ['CALMAR', s => isFinite(s.calmar) ? s.calmar.toFixed(2) : '—'], ['DD ACTUEL', s => pct(s.ddNow)], ['PLUS LONG DD', s => s.maxDur + 'J'], ['CAPITAL FINAL', s => usd(s.final)]];
+  $('dRes').innerHTML = `<table class="mt"><tr><th></th><th style="color:var(--amber)">STRAT</th><th>QQQ B&amp;H</th><th>3× B&amp;H</th></tr>${rows.map(([l, f]) => `<tr><td>${l}</td><td><b>${f(a)}</b></td><td>${f(b)}</td><td>${f(c)}</td></tr>`).join('')}
+    <tr><td>TRADES</td><td><b>${a.trades}</b></td><td>1</td><td>1</td></tr><tr><td>WIN RATE</td><td><b>${isFinite(a.win) ? (a.win * 100).toFixed(1) + '%' : '—'}</b></td><td>—</td><td>—</td></tr>
+    <tr><td>AVG R/R</td><td><b>${isFinite(a.rr) ? a.rr.toFixed(2) : '∞'}</b></td><td>—</td><td>—</td></tr><tr><td>PROFIT FACTOR</td><td><b>${isFinite(a.pf) ? a.pf.toFixed(2) : '∞'}</b></td><td>—</td><td>—</td></tr>
+    <tr><td>EXPOSITION</td><td><b>${Math.round(a.expo * 100)}%</b></td><td>100%</td><td>100%</td></tr></table>`;
+  const ys = Object.keys(a.yearly);
+  $('dYear').innerHTML = `<table class="mt"><tr><th>ANNÉE</th><th style="color:var(--amber)">STRAT</th><th>QQQ</th><th>3×</th></tr>${ys.map(y => `<tr><td>${y}${y === M.d[M.n - 1].slice(0, 4) ? ' YTD' : ''}</td><td class="${cls(a.yearly[y])}"><b>${pct(a.yearly[y])}</b></td><td class="${cls(b.yearly[y])}">${pct(b.yearly[y])}</td><td class="${cls(c.yearly[y])}">${pct(c.yearly[y])}</td></tr>`).join('')}</table>`;
+  const tr = bt.trades.slice(-12).reverse(); const op = bt.open;
+  $('dTrades').innerHTML = `<table class="mt"><tr><th>ENTRÉE</th><th>SORTIE</th><th>JOURS</th><th>QQQ</th><th>RÉSULTAT</th></tr>${op ? `<tr><td>${dfr(M.d[op.i])}</td><td style="color:var(--amber)">OUVERT</td><td>${op.days}</td><td>${nf2.format(op.px)}</td><td class="${cls(op.ret)}"><b>${pct(op.ret)}</b></td></tr>` : ''}${tr.map(t => `<tr><td>${dfr(M.d[t.i0])}</td><td>${dfr(M.d[t.i1])}</td><td>${t.days}</td><td>${nf2.format(t.px0)} → ${nf2.format(t.px1)}</td><td class="${cls(t.ret)}"><b>${pct(t.ret)}</b></td></tr>`).join('')}</table>`;
+  $('dLb').innerHTML = `<table class="mt"><tr><th>#</th><th>STRATÉGIE</th><th>SHARPE</th><th>CAGR</th><th>MAX DD</th><th>TRADES</th></tr>${R.lb.map((l, i) => `<tr style="${l.k === S.P.strat ? 'color:var(--amber)' : ''}"><td>${i + 1}</td><td style="text-align:left">${l.name}</td><td><b>${l.sharpe.toFixed(2)}</b></td><td>${pct(l.cagr)}</td><td>${pct(l.mdd, 0)}</td><td>${l.trades}</td></tr>`).join('')}</table>`;
+  $('dNote').innerHTML = `Levier simulé au quotidien : L × rendement total de QQQ − (L−1) × (taux Fed + spread) − frais de l'ETF. Le 3× colle à TQQQ (2022 : −78,7 % simulé vs −79,1 % réel ; 2023 : +200 % vs +198 %). Hors marché, le cash est rémunéré au taux Fed approximatif si l'option est active. Données depuis le ${dfr(M.d[0])} (warm-up des moyennes inclus), donc pas de 2000 ni de 2008 : le cône de ruine aide à compenser. Le classement réutilise ton levier et tes coûts avec les paramètres par défaut de chaque stratégie.`;
+}
+
+/* ================================================================== sample (Ask Claude) */
+async function initSample() {
+  if (!window.claude || !window.claude.use) return;
+  let sample = null; try { sample = await window.claude.use('sample'); } catch (e) { }
+  if (!sample) return;
+  $('askForm').hidden = false; let ctl = null;
+  $('askForm').addEventListener('submit', async ev => {
+    ev.preventDefault(); const q = $('askIn').value.trim(); if (!q) return; ctl?.abort(); ctl = new AbortController();
+    $('answer').hidden = false; $('ansTxt').textContent = 'Réflexion…';
+    const ctx = snapshotContext();
+    try {
+      await sample(`Tu es l'agent d'un terminal quant. Réponds en français, de façon concise et chiffrée (8 lignes max), sans conseil personnalisé définitif : donne les faits et les signaux, et ce qu'ils impliquent pour la règle de l'utilisateur.\n\nCONTEXTE (calculé par le terminal, données au ${M.d[M.n - 1]}):\n${ctx}\n\nQUESTION : ${q}`,
+        { signal: ctl.signal, onText: ({ text }) => { $('ansTxt').textContent = text; } });
+    } catch (e) { $('ansTxt').textContent = (e && e.text) || (e && e.code === 'not_granted' ? "Accès à Claude refusé pour cette page." : e && e.code === 'rate_limited' ? 'Trop de requêtes, réessaie dans un instant.' : e && e.code === 'cancelled' ? '' : 'Réponse indisponible.'); }
+  });
+}
+function snapshotContext() {
+  const n = M.n, bt = R.bt, b = R.by;
+  return JSON.stringify({
+    qqq: { close: M.c[n - 1], sma200: +M.sma200[n - 1].toFixed(2), sma50: +M.sma50[n - 1].toFixed(2), d200: +(M.c[n - 1] / M.sma200[n - 1] - 1).toFixed(4), vol20: +M.vol20[n - 1].toFixed(3), rsi14: +M.rsi14[n - 1].toFixed(1), live: liveState() },
+    strategy: { name: STRATS[S.P.strat].name, lev: S.P.lev, cagr: +bt.st.cagr.toFixed(3), sharpe: +bt.st.sharpe.toFixed(2), maxDD: +bt.st.mdd.toFixed(3), ddNow: +bt.st.ddNow.toFixed(3), inPosition: bt.ex[bt.s1] > 0, openTrade: bt.open && { since: M.d[bt.open.i], ret: +bt.open.ret.toFixed(3) } },
+    montecarlo: { pRuin: R.mc.pRuin, ruinThreshold: S.P.ruin, median1y: +R.mc.med.toFixed(2) },
+    bayes: { prior: +b.p0.toFixed(3), posterior: +b.post.toFixed(3), ev21d: +b.EV.toFixed(4), evidence: b.ev.map(e => [e.k, e.v, +e.llr.toFixed(3)]) },
+    analog: { up: R.an.up, down: R.an.down, median: +R.an.median.toFixed(4), match: +R.an.match.toFixed(2) },
+    vortex: { sync: +R.ku.r.toFixed(2), K: +R.ku.K.toFixed(2) }, membrane: R.mem.state,
+    brvm: { session: BR.asof, up: BR.upN, down: BR.dnN, composite: BR.idx[0], top5score: BR.rows.slice().sort((a, c) => c.score - a.score).slice(0, 5).map(r => [r.t, r.score, r.yld && +r.yld.toFixed(2), r.per && +r.per.toFixed(1)]) }
+  });
+}
+
+/* ================================================================== wiring + loop */
+function renderAll(first) {
+  readPalette(); renderHeader(); renderRank(); renderTape(); renderPNL(first); drawEquity(); renderTF(); drawChart(); renderLadder();
+  renderGrid(); drawSurvival(); drawAurora(performance.now()); drawMembrane(performance.now()); renderVortex(); drawVortex(0); drawRuin();
+  buildAgent(); renderAnalogStats(); drawAnalog(performance.now()); drawBayes(); renderBayesSide(); renderFooter();
+  if (first) { typeAgent(); flashGrid(); }
+  if ($('drawer').classList.contains('open')) renderDrawerResults();
+}
+function redrawCanvases() { readPalette(); drawEquity(); drawChart(); drawSurvival(); drawAurora(performance.now()); drawMembrane(performance.now()); renderVortex(); PARTS = null; drawVortex(0); drawRuin(); drawAnalog(performance.now()); drawBayes(); }
+function wire() {
+  document.addEventListener('click', ev => {
+    const t = ev.target.closest('[data-mode],[data-t],[data-tf],[data-h],[data-k],.info'); if (!t) return;
+    if (t.classList.contains('info')) { const p = t.closest('.panel'); const ex = p.querySelector('.explain'); if (ex) { ex.remove(); t.setAttribute('aria-expanded', 'false'); return; }
+      document.querySelectorAll('.explain').forEach(e => e.remove()); document.querySelectorAll('.info').forEach(b => b.setAttribute('aria-expanded', 'false'));
+      const d = document.createElement('div'); d.className = 'explain'; d.innerHTML = INFO[t.dataset.info] || ''; p.appendChild(d); t.setAttribute('aria-expanded', 'true'); return; }
+    if (t.dataset.mode) { S.mode = t.dataset.mode; LS.set('mode', S.mode); renderGrid(); if (S.mode !== 'table') flashGrid(); return; }
+    if (t.dataset.tf) { S.tf = t.dataset.tf; renderTF(); drawChart(); renderHeader(); return; }
+    if (t.dataset.h) { S.H = +t.dataset.h; document.querySelectorAll('#p-ruin [data-h]').forEach(b => b.classList.toggle('on', b === t)); runMC(); drawRuin(); buildAgent(); return; }
+    if (t.dataset.k && t.tagName === 'TH') { const k = t.dataset.k; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : (['t', 'n', 'sec', 'cty', 'per'].includes(k) ? 1 : -1) }; renderTable(); return; }
+    if (t.dataset.t) { openStock(t.dataset.t); return; }
+  });
+  document.addEventListener('click', ev => { if (!ev.target.closest('.explain,.info')) { document.querySelectorAll('.explain').forEach(e => e.remove()); document.querySelectorAll('.info').forEach(b => b.setAttribute('aria-expanded', 'false')); } }, true);
+  $('rResample').addEventListener('click', () => { S.seed = (S.seed * 7919 + 13) % 100003; runMC(); drawRuin(); buildAgent(); });
+  const openBT = () => { fillDrawer(); renderDrawerResults(); $('drawer').classList.add('open'); $('scrim').classList.add('on'); $('fStrat').focus(); };
+  $('openBT').addEventListener('click', openBT); $('pid').addEventListener('click', openBT);
+  $('closeBT').addEventListener('click', closeOverlays); $('scrim').addEventListener('click', closeOverlays); $('mClose').addEventListener('click', closeOverlays);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlays(); });
+  $('fStrat').addEventListener('change', () => { const d = STRATS[$('fStrat').value].d; for (const [k, v] of Object.entries(d)) { const el = { n: 'fN', fast: 'fFast', band: 'fBand', tv: 'fTv' }[k]; if (el) $(el).value = v; } stratFields(); });
+  $('runBT').addEventListener('click', () => { S.P = readDrawer(); LS.set('P', S.P); computeBT(); renderAll(false); renderDrawerResults(); });
+  $('resetBT').addEventListener('click', () => { S.P = { ...DEFAULT_P }; LS.set('P', S.P); fillDrawer(); computeBT(); renderAll(false); renderDrawerResults(); });
+  $('fitMinus').addEventListener('click', () => { const i = BARSTEPS.findIndex(b => b >= S.bars); S.bars = BARSTEPS[Math.max(0, i - 1)]; drawChart(); renderHeader(); });
+  $('fitPlus').addEventListener('click', () => { const i = BARSTEPS.findIndex(b => b >= S.bars); S.bars = BARSTEPS[Math.min(BARSTEPS.length - 1, i + 1)]; drawChart(); renderHeader(); });
+  $('skin').addEventListener('click', () => { document.body.classList.toggle('light'); LS.set('skin', document.body.classList.contains('light') ? 'light' : 'dark'); $('skin').textContent = document.body.classList.contains('light') ? '◑ DARK' : '◐ LIGHT'; redrawCanvases(); });
+  if (document.body.classList.contains('light')) $('skin').textContent = '◑ DARK';
+  const ch = $('cv-chart');
+  ch.addEventListener('mousemove', e => { const r = ch.getBoundingClientRect(), L = S.cl; if (!L) return; const i = L.i0 + Math.floor((e.clientX - r.left - 6) / L.cw); S.hover = U.clamp(i, L.i0, L.len - 1); drawChart(); });
+  ch.addEventListener('mouseleave', () => { S.hover = null; drawChart(); });
+  ch.addEventListener('wheel', e => { e.preventDefault(); const i = BARSTEPS.findIndex(b => b >= S.bars); S.bars = BARSTEPS[U.clamp(i + (e.deltaY > 0 ? 1 : -1), 0, BARSTEPS.length - 1)]; drawChart(); renderHeader(); }, { passive: false });
+  $('ansX').addEventListener('click', () => { $('answer').hidden = true; });
+  let rt = null; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(redrawCanvases, 120); });
+  setInterval(typeAgent, 6500);
+}
+const VIS = {};
+function loop() {
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => VIS[e.target.id] = e.isIntersecting), { threshold: .01 }) : null;
+  ['cv-vortex', 'cv-mem', 'cv-analog', 'cv-aurora', 'cv-ruin'].forEach(id => { VIS[id] = true; io && io.observe($(id)); });
+  if (RM) return;
+  let last = performance.now(), lm = 0, la = 0, lau = 0;
+  const f = t => { requestAnimationFrame(f); if (document.hidden) { last = t; return; } const dt = Math.min(.05, (t - last) / 1000); last = t;
+    if (VIS['cv-vortex']) drawVortex(dt);
+    if (VIS['cv-mem'] && t - lm > 50) { drawMembrane(t); lm = t; }
+    if (VIS['cv-analog'] && t - la > 66) { drawAnalog(t); la = t; }
+    if (VIS['cv-aurora'] && t - lau > 90) { drawAurora(t); lau = t; }
+    if (S.reveal < 1) { S.reveal = Math.min(1, S.reveal + dt / 1.6); drawRuin(); }
+  };
+  requestAnimationFrame(f);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+
+</script>
+</body></html>

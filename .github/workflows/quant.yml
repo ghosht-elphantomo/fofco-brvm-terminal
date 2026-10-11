@@ -1,0 +1,72 @@
+name: quant-data
+
+# Terminal Claude × Quant (dossier quant/) : relève Yahoo (QQQ) + brvm.org et publie le site
+# complet (index.html + data/) sur la branche quant-data, réécrite à chaque passage.
+# Heures UTC, lun-ven : BRVM 09:00-15:30, Nasdaq 13:30-20:00.
+on:
+  schedule:
+    - cron: "*/30 9-12 * * 1-5"    # matinée BRVM
+    - cron: "*/15 13-20 * * 1-5"   # séance US (+ fin de séance BRVM)
+    - cron: "35 22 * * 1-5"        # EOD : historique quotidien complet
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "live (cours) ou eod (historique complet)"
+        type: choice
+        options: [eod, live]
+        default: eod
+  push:
+    branches: [main]
+    paths: ["quant/**", ".github/workflows/quant.yml"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quant-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mode
+        id: mode
+        run: |
+          MODE=live
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then MODE="${{ inputs.mode }}"; fi
+          if [ "${{ github.event.schedule }}" = "35 22 * * 1-5" ]; then MODE=eod; fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Restaurer le dernier état (branche quant-data)
+        run: |
+          mkdir -p /tmp/state
+          cp quant/seed/history.json quant/seed/brvm.json /tmp/state/
+          if git fetch -q --depth 1 origin quant-data; then
+            for f in history.json brvm.json; do git show "FETCH_HEAD:data/$f" > "/tmp/state/$f.new" 2>/dev/null && mv "/tmp/state/$f.new" "/tmp/state/$f" || rm -f "/tmp/state/$f.new"; done
+          fi
+
+      - name: Relever (Yahoo + brvm.org)
+        run: python3 quant/scripts/scrape.py --mode "${{ steps.mode.outputs.mode }}" --state /tmp/state --out /tmp/site
+
+      - name: Publier sur la branche quant-data
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/site
+          git init -q -b quant-data
+          git config user.name "quant-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Données $(date -u +'%d/%m/%Y %H:%M') UTC"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" quant-data
+
+      - name: Base YTD BRVM (premier EOD de l'année)
+        run: |
+          git config user.name "quant-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add quant/seed/brvm_ref.json
+          if git diff --cached --quiet; then echo "Base inchangée"; else git commit -qm "quant: nouvelle base YTD BRVM" && git pull -q --rebase origin main && git push -q origin HEAD:main; fi

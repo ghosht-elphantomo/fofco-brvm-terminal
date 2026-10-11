@@ -1,0 +1,232 @@
+<div class="wrap" id="app">
+  <header class="hdr">
+    <div class="brand">
+      <div class="logo">Q</div>
+      <div>
+        <div class="bt">CLAUDE<em>×</em>QUANT</div>
+        <div class="bs">HUNTER OS · QQQ/TQQQ · BRVM 48 · AGENT</div>
+      </div>
+    </div>
+    <div class="hmid">
+      <nav class="nav" aria-label="Modules">
+        <a href="#p-grid" title="Sonar : scan des 48 actions BRVM">SONAR</a><i>·</i>
+        <a href="#p-analog" title="Neural : analogues historiques k-NN">NEURAL</a><i>·</i>
+        <a href="#p-bayes" title="Kelly : probabilité bayésienne et taille de position">KELLY</a>
+      </nav>
+      <button class="pill-red" id="openBT" title="Ouvrir la console de backtest">BACKTEST</button>
+      <div class="fit" title="Zoom du graphique QQQ">
+        <button id="fitMinus" aria-label="Moins de barres">–</button><b id="fitLab">FIT</b><button id="fitPlus" aria-label="Plus de barres">+</button>
+      </div>
+      <button class="light-t" id="skin">◐ LIGHT</button>
+    </div>
+    <div class="hright">
+      <button class="syncb" id="syncBtn" hidden title="Recopier tout de suite le dernier relevé GitHub (15 min)">⟳ SYNC</button>
+      <div class="status eod" id="status"><i></i><span id="statusTxt">EOD ·</span><br><span id="statusSub">CLÔTURE</span></div>
+      <div class="lat"><b id="lat">—</b><span>LATENCY</span></div>
+      <div class="clock" id="clock">00:00:00</div>
+      <div class="clk2"><b id="tz">UTC</b>BAR<br><span id="barn">#0</span></div>
+    </div>
+  </header>
+
+  <div class="rank" id="rank"></div>
+  <div class="tape"><span class="tag" id="tapeTag"><i style="width:6px;height:6px;border-radius:50%;background:#fff;display:inline-block"></i>BRVM</span><div class="tape-in" id="tape"></div></div>
+
+  <section class="row r1">
+    <div class="panel pnlp" id="p-pnl">
+      <div class="pnl">
+        <div class="pnl-top">
+          <span class="dot"></span><span class="pid" id="pid" title="Ouvrir la console de backtest">0x…</span>
+          <b class="bdg g" title="Run déterministe : hash des paramètres + date de la dernière barre">VERIFIED</b>
+          <span class="badges"><b class="bdg a" id="pnlSpan">BACKTEST PNL</b><button class="info" data-info="pnl" aria-label="À quoi sert ce panneau">?</button></span>
+        </div>
+        <div class="pnl-sub" id="psub">—</div>
+        <div class="pnl-main">
+          <div class="big" id="big"><sup>$</sup>0</div>
+          <div class="delta">
+            <div class="dbox" id="dbox">▲ +$0</div>
+            <div class="dlab" id="dlab">SETTLED · —</div>
+            <div class="dpct" id="dpct">+0%</div>
+          </div>
+        </div>
+        <div class="kpis">
+          <div class="kpi"><span>TRADES</span><b id="kT">0</b></div>
+          <div class="kpi"><span>WIN RATE</span><b id="kW" class="up">0%</b></div>
+          <div class="kpi"><span>AVG R/R</span><b id="kR">0</b></div>
+          <div class="kpi"><span>SHARPE</span><b id="kS" style="color:var(--amber)">0</b></div>
+        </div>
+        <div class="eqbox"><canvas id="cv-eq"></canvas><span class="eqlab" id="eqlab">EQUITY CURVE</span></div>
+        <div class="risk" id="riskbox">
+          <div class="rl">DD RISK<b id="riskv">0</b><span> /10</span></div>
+          <div class="rnote" id="rnote"></div>
+          <b class="bdg g" id="riskb">SAFE</b>
+          <div class="rbar"><i id="rfill"></i><u id="rmark" title="Pire drawdown historique"></u></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel chp" id="p-chart">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">▤</i><span id="chTitle">QQQ / USD · 1D</span></span>
+        <span class="badges"><b class="bdg a" id="chSrc">EOD · YAHOO</b><button class="info" data-info="chart" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="chartwrap">
+        <div class="chartc">
+          <div class="cprice" id="cprice">$0</div>
+          <div class="ctf" id="ctf"></div>
+          <canvas id="cv-chart"></canvas>
+          <div class="xhair" id="xhair"></div>
+        </div>
+        <div class="ladder" id="ladder"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="row r2">
+    <div class="panel" id="p-grid">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">▦</i>RESOLUTION GRID · <em>BRVM 48 TITRES</em></span>
+        <span class="badges"><b class="bdg a" id="gUp">HAUSSE 0</b><b class="bdg a" id="gDn">BAISSE 0</b><button class="info" data-info="grid" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span id="gSub">—</span><span class="gtools" id="gModes"></span></div>
+      <div class="bgrid" id="bgrid"></div>
+      <div class="btable" id="btable" hidden></div>
+    </div>
+    <div class="panel survp" id="p-surv">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">⧗</i>FILL SURVIVAL · <em>DRAWDOWNS</em></span>
+        <span class="badges"><b class="bdg g" id="sP50">P50 —</b><b class="bdg a" id="sP90">P90 —</b><b class="bdg r" id="sNow">DD —</b><button class="info" data-info="surv" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>PART DES DRAWDOWNS ≥5% NON RÉCUPÉRÉS · KAPLAN-MEIER</span></div>
+      <div class="surv"><div class="sc" style="position:relative;min-width:0"><canvas id="cv-surv"></canvas></div><div class="sstats" id="sstats"></div></div>
+    </div>
+  </section>
+
+  <section class="row r3">
+    <div class="panel" id="p-aurora">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">▚</i>ORDER FLOW AURORA · <em>TAPE PRESSURE</em></span>
+        <span class="badges"><b class="bdg g" id="aCvd">CVD —</b><b class="bdg a" id="aReg">REGIME —</b><button class="info" data-info="aurora" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>PRESSION ACHETEUR ↑ · VENDEUR ↓ · CLV × VOLUME · QQQ 200J</span><span style="color:var(--cyan)" id="aEr">ER —</span></div>
+      <div style="position:relative;flex:1;min-height:0"><canvas id="cv-aurora"></canvas></div>
+    </div>
+    <div class="panel" id="p-mem">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">≋</i>BOOK MEMBRANE · <em>MOMENTUM FIELD</em></span>
+        <span class="badges"><b class="bdg a" id="mAlign">ALIGN —</b><b class="bdg g" id="mState">STATE —</b><button class="info" data-info="mem" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>16 HORIZONS × 150J · Z-SCORE DU RENDEMENT · NAPPE ÉLASTIQUE</span><b id="mDrive">—</b></div>
+      <div style="position:relative;flex:1;min-height:0"><canvas id="cv-mem"></canvas></div>
+    </div>
+  </section>
+
+  <section class="row r4">
+    <div class="panel vtxp" id="p-vortex">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">◆</i>PHASE VORTEX · <em>COHERENCE FIELD</em></span>
+        <span class="badges"><b class="bdg a" id="vK">K —</b><b class="bdg g" id="vSync">SYNC —</b><button class="info" data-info="vortex" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span>22 MARCHÉS · CHAMP DE PHASE KURAMOTO (HILBERT D'EHLERS)</span><b id="vSynced" style="color:var(--green)">—</b></div>
+      <div class="vtx">
+        <div class="vlist" id="vL"></div>
+        <div class="vcanvas"><canvas id="cv-vortex"></canvas></div>
+        <div class="vlist r" id="vR"></div>
+        <div class="vinfo" id="vInfo"></div>
+      </div>
+    </div>
+    <div class="panel ruinp" id="p-ruin">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">◆</i>RUIN CONE · <em>FORWARD MONTE CARLO</em></span>
+        <span class="badges"><b class="bdg g" id="rP">P(RUIN) —</b><button class="info" data-info="ruin" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span id="rStats">—</span><span class="gtools"><button class="chip" id="rResample" title="Relancer 1 000 trajectoires">↻ RESAMPLE</button><button class="chip on" data-h="252">1Y</button><button class="chip" data-h="756">3Y</button></span></div>
+      <div class="ruinc"><canvas id="cv-ruin"></canvas></div>
+    </div>
+  </section>
+
+  <div class="agent" id="agent">
+    <span class="pr">&gt; AGENT</span>
+    <span class="msg" id="agentMsg"></span>
+    <form id="askForm" autocomplete="off" hidden>
+      <input id="askIn" placeholder="Demande à Claude : faut-il rester long ?" aria-label="Question à Claude">
+      <button type="submit">ASK ›</button>
+    </form>
+  </div>
+  <div class="answer" id="answer" hidden><button class="x" id="ansX" aria-label="Fermer">×</button><div id="ansTxt"></div></div>
+
+  <section class="row r5">
+    <div class="panel" id="p-analog">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">◫</i>ANALOG MATCHER · <em>K-NN · SEEN THIS BEFORE</em></span>
+        <span class="badges"><b class="bdg a" id="aDtw">DTW —</b><b class="bdg g" id="aScan">SCAN —</b><button class="info" data-info="analog" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="ana"><div class="ac"><canvas id="cv-analog"></canvas></div><div class="astats" id="astats"></div></div>
+    </div>
+    <div class="panel" id="p-bayes">
+      <div class="ph">
+        <span class="ph-t"><i class="ico">~</i>BAYESIAN UPDATE · <em>P(UP 21J)</em></span>
+        <span class="badges"><b class="bdg a" id="bEv">EV —</b><b class="bdg a" id="bEdge">EDGE —</b><button class="info" data-info="bayes" aria-label="À quoi sert ce panneau">?</button></span>
+      </div>
+      <div class="sub"><span id="bSub">—</span><b id="bUpd">—</b></div>
+      <div class="bay"><div class="bc" style="position:relative;min-width:0"><canvas id="cv-bayes"></canvas></div><div class="bev" id="bev"></div></div>
+      <div class="bfoot" id="bfoot"></div>
+    </div>
+  </section>
+
+  <div class="foot"><span class="tag">HUNTER · ONLINE</span><div class="tape-in" id="foot"></div></div>
+  <div class="src" id="src"></div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+<aside class="drawer" id="drawer" aria-label="Console de backtest">
+  <div class="dh"><b>BACKTEST CONSOLE</b><button id="closeBT">FERMER ✕</button></div>
+  <div class="dbody">
+    <div class="dsec">
+      <h5>STRATÉGIE</h5>
+      <select id="fStrat"></select>
+      <div class="sdesc" id="fDesc"></div>
+    </div>
+    <div class="dsec">
+      <h5>PARAMÈTRES</h5>
+      <div class="fgrid">
+        <label id="lN">LONGUEUR N<input id="fN" type="number" min="2" max="400" step="1"></label>
+        <label id="lFast">RAPIDE / SORTIE<input id="fFast" type="number" min="2" max="200" step="1"></label>
+        <label id="lBand">BANDE ± %<input id="fBand" type="number" min="0" max="10" step="0.25"></label>
+        <label id="lTv">VOL CIBLE %<input id="fTv" type="number" min="5" max="80" step="1"></label>
+        <label>LEVIER<select id="fLev"><option value="1">1× (QQQ)</option><option value="2">2× (QLD)</option><option value="3">3× (TQQQ)</option></select></label>
+        <label>EXÉCUTION<select id="fExec"><option value="close">Clôture (MOC −5 min)</option><option value="open">Ouverture J+1</option></select></label>
+        <label>DÉBUT<input id="fStart" type="date" min="2017-01-01" max="2026-01-01"></label>
+        <label>CAPITAL $<input id="fCap" type="number" min="100" step="100"></label>
+      </div>
+    </div>
+    <div class="dsec">
+      <h5>COÛTS &amp; FINANCEMENT</h5>
+      <div class="fgrid">
+        <label>FRAIS (BP / ORDRE)<input id="fFee" type="number" min="0" max="100" step="0.5"></label>
+        <label>SLIPPAGE (BP)<input id="fSlip" type="number" min="0" max="100" step="0.5"></label>
+        <label>SPREAD FINANCEMENT %<input id="fSpread" type="number" min="0" max="5" step="0.05"></label>
+        <label>FRAIS ETF %/AN<input id="fEr" type="number" min="0" max="3" step="0.01"></label>
+        <label class="full">CASH RÉMUNÉRÉ HORS MARCHÉ<select id="fCash"><option value="1">Oui (taux Fed approx.)</option><option value="0">Non (0 %)</option></select></label>
+      </div>
+    </div>
+    <div class="dsec">
+      <h5>RISQUE</h5>
+      <div class="fgrid">
+        <label>SEUIL DE RUINE (DD %)<input id="fRuin" type="number" min="10" max="95" step="5"></label>
+        <label>BLOC BOOTSTRAP (J)<input id="fBlock" type="number" min="1" max="120" step="1"></label>
+      </div>
+    </div>
+    <div class="run"><button class="go" id="runBT">▶ RUN BACKTEST</button><button class="rs" id="resetBT">RESET</button></div>
+    <div class="dsec"><h5>RÉSULTATS</h5><div id="dRes"></div></div>
+    <div class="dsec"><h5>ANNÉE PAR ANNÉE</h5><div id="dYear"></div></div>
+    <div class="dsec"><h5>DERNIERS TRADES</h5><div id="dTrades"></div></div>
+    <div class="dsec"><h5>CLASSEMENT DES 8 STRATÉGIES</h5><div id="dLb"></div></div>
+    <p class="note" id="dNote"></p>
+  </div>
+</aside>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="mh"><div><h3 id="mTitle">—</h3><p id="mSub">—</p></div><button id="mClose">✕</button></div>
+  <div class="mb" id="mBody"></div>
+</div>
