@@ -93,6 +93,21 @@ def with_history(rows, hist_dir, code):
     return [r for r in old if first is None or r[0] < first] + rows
 
 
+def with_own(rows, own_path, override=False):
+    """Comble avec l'archive propre (branche prices) les dates absentes du miroir public.
+    override=True (indices) : la valeur officielle relevée sur brvm.org remplace celle du miroir."""
+    if not own_path or not os.path.exists(own_path):
+        return rows
+    own = parse_csv(own_path)
+    if override:
+        byd = {r[0]: r for r in rows}
+        byd.update({r[0]: r for r in own})
+        return [byd[k] for k in sorted(byd)]
+    have = {r[0] for r in rows}
+    extra = [r for r in own if r[0] not in have]
+    return sorted(rows + extra, key=lambda r: r[0]) if extra else rows
+
+
 def columnar(rows):
     keys = ("d", "o", "h", "l", "c", "v", "val")
     out = {k: [] for k in keys}
@@ -167,7 +182,7 @@ def pick_live(src, live_path):
     return max(cands, key=key)
 
 
-def build(src, live_path, out, hist_dir=None):
+def build(src, live_path, out, hist_dir=None, own_dir=None):
     os.makedirs(os.path.join(out, "h"), exist_ok=True)
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     actions = load_json(os.path.join(src, "actions.json"), {}).get("actions", [])
@@ -186,6 +201,7 @@ def build(src, live_path, out, hist_dir=None):
         path = os.path.join(src, a["csv"] + ".csv")
         rows = parse_csv(path) if os.path.exists(path) else []
         rows = with_history(rows, hist_dir, t)
+        rows = with_own(rows, os.path.join(own_dir, "titres", t + ".csv") if own_dir else None)
         prov = False
         lc = live_cours.get(t)
         if lc and live_date:
@@ -302,6 +318,7 @@ def build(src, live_path, out, hist_dir=None):
     for code in sorted(idx_paths):
         p = idx_paths[code]
         rows = with_history(parse_csv(p) if p else [], hist_dir, code)
+        rows = with_own(rows, os.path.join(own_dir, "indices", code + ".csv") if own_dir else None, override=True)
         if not rows:
             continue
         nm, typ, gele = names.get(code, (code, None, None))
@@ -392,5 +409,6 @@ if __name__ == "__main__":
     ap.add_argument("--live")
     ap.add_argument("--out", default="data")
     ap.add_argument("--hist", default="history", help="séances anciennes rattrapées (backfill_sika.py)")
+    ap.add_argument("--own", help="archive propre des clôtures (branche prices, record_close.py)")
     a = ap.parse_args()
-    build(a.src, a.live, a.out, a.hist)
+    build(a.src, a.live, a.out, a.hist, a.own)

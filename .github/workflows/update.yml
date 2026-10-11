@@ -36,8 +36,21 @@ jobs:
         continue-on-error: true
         run: python pipeline/scrape_live.py /tmp/live.json
 
+      - name: Archiver la clôture du jour (branche prices)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone -q --depth 1 -b prices "$REPO" /tmp/prices 2>/dev/null || (mkdir -p /tmp/prices && git -C /tmp/prices init -q -b prices)
+          python pipeline/record_close.py /tmp/live.json /tmp/prices
+          cd /tmp/prices
+          git config user.name "fofco-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || { git commit -qm "Clôtures $(date -u +'%d/%m/%Y')" && git push -q "$REPO" HEAD:prices; }
+
       - name: Construire les fichiers de données
-        run: python pipeline/build.py --src /tmp/src --live /tmp/live.json --out /tmp/out/data
+        run: python pipeline/build.py --src /tmp/src --live /tmp/live.json --out /tmp/out/data --own /tmp/prices
 
       - name: Publier sur la branche data
         env:
