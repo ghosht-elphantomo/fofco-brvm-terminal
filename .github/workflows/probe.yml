@@ -1,0 +1,31 @@
+name: Sonde des sources (développement)
+
+# Outil de développement : télécharge les pages listées dans pipeline/probe_urls.txt
+# et les dépose sur la branche debug pour écrire et vérifier les lecteurs.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python pipeline/probe.py pipeline/probe_urls.txt /tmp/debug
+      - name: Déposer sur la branche debug
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/debug
+          git init -q -b debug
+          git config user.name "fofco-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Sonde $(date -u +'%d/%m/%Y %H:%M') UTC"
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" debug

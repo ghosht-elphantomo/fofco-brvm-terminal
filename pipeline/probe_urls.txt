@@ -1,0 +1,46 @@
+# Sonde n°1 : règles robots et pages candidates
+https://www.brvm.org/robots.txt
+https://www.sikafinance.com/robots.txt
+https://pro.sikafinance.com/robots.txt
+https://www.richbourse.com/robots.txt
+https://www.african-markets.com/robots.txt
+https://ouestbourse.com/robots.txt
+
+# BRVM (source officielle)
+https://www.brvm.org/fr/cours-actions/0
+https://www.brvm.org/fr/cours-actions/0/0/2026-10-09
+https://www.brvm.org/fr/cours-actions/0/0/2015-03-02
+https://www.brvm.org/fr/cours-actions/0/0/2008-03-03
+https://www.brvm.org/fr/indices
+https://www.brvm.org/fr/indices/0/2015-03-02
+https://www.brvm.org/fr/esv/paiement-de-dividendes
+https://www.brvm.org/fr/esv/paiement-de-dividendes?page=5
+https://www.brvm.org/fr/marche/avis-et-publications/avis
+https://www.brvm.org/fr/emetteurs/type-annonces/convocations-assemblees-generales
+https://www.brvm.org/fr/rapports-societe-cotes/sonatel
+https://www.brvm.org/fr/entreprises-cotees
+https://www.brvm.org/fr/informations-financieres
+https://www.brvm.org/fr/bulletins-officiels-de-la-cote
+https://www.brvm.org/sites/default/files/boc_20261009_2.pdf
+
+# SikaFinance
+https://www.sikafinance.com/marches/aaz
+https://www.sikafinance.com/marches/societe/SNTS.sn
+https://www.sikafinance.com/marches/societe/SGBC.ci
+https://pro.sikafinance.com/finance/SNTS.sn
+https://www.sikafinance.com/marches/dividendes
+POST https://www.sikafinance.com/api/general/GetHistos {"ticker":"SNTS.sn","datedeb":"2026-07-01","datefin":"2026-09-27","xperiod":"0"}
+POST https://www.sikafinance.com/api/general/GetHistos {"ticker":"BRVMC","datedeb":"2026-07-01","datefin":"2026-09-27","xperiod":"0"}
+POST https://www.sikafinance.com/api/general/GetHistos {"ticker":"SNTS.sn","datedeb":"1998-01-01","datefin":"2026-10-09","xperiod":"365"}
+
+# RicheBourse
+https://www.richbourse.com/common/variation/index/veille/tout
+https://www.richbourse.com/common/variation/indice/veille/tout
+https://www.richbourse.com/common/mouvements/index/SNTS
+https://www.richbourse.com/common/variation/historique/SNTS
+https://www.richbourse.com/common/dividende/index
+
+# Autres sources candidates
+https://www.african-markets.com/fr/bourses/brvm/listed-companies
+https://www.african-markets.com/en/stock-markets/brvm/listed-companies
+https://ouestbourse.com
