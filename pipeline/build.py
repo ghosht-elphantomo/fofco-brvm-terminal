@@ -83,6 +83,16 @@ def parse_csv(path):
     return [rows[k] for k in sorted(rows)]
 
 
+def with_history(rows, hist_dir, code):
+    """Ajoute devant la série du miroir les séances plus anciennes rattrapées chez SikaFinance."""
+    path = os.path.join(hist_dir, code + ".csv") if hist_dir else None
+    if not path or not os.path.exists(path):
+        return rows
+    old = parse_csv(path)
+    first = rows[0][0] if rows else None
+    return [r for r in old if first is None or r[0] < first] + rows
+
+
 def columnar(rows):
     keys = ("d", "o", "h", "l", "c", "v", "val")
     out = {k: [] for k in keys}
@@ -157,7 +167,7 @@ def pick_live(src, live_path):
     return max(cands, key=key)
 
 
-def build(src, live_path, out):
+def build(src, live_path, out, hist_dir=None):
     os.makedirs(os.path.join(out, "h"), exist_ok=True)
     now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat()
     actions = load_json(os.path.join(src, "actions.json"), {}).get("actions", [])
@@ -175,6 +185,7 @@ def build(src, live_path, out):
         t = a["ticker"]
         path = os.path.join(src, a["csv"] + ".csv")
         rows = parse_csv(path) if os.path.exists(path) else []
+        rows = with_history(rows, hist_dir, t)
         prov = False
         lc = live_cours.get(t)
         if lc and live_date:
@@ -259,9 +270,13 @@ def build(src, live_path, out):
     idx_full, idx_core = {}, {}
     rep = load_json(os.path.join(src, "indices", "indices_report.json"), {})
     names = {e.get("code"): (e.get("nom"), e.get("type"), e.get("gele")) for e in rep.get("entries", [])}
-    for p in sorted(glob.glob(os.path.join(src, "indices", "Indice_*.csv"))):
-        code = os.path.basename(p)[7:-4]
-        rows = parse_csv(p)
+    idx_paths = {os.path.basename(p)[7:-4]: p for p in glob.glob(os.path.join(src, "indices", "Indice_*.csv"))}
+    if hist_dir and os.path.exists(os.path.join(hist_dir, "BRVM10.csv")):
+        idx_paths.setdefault("BRVM10", None)
+        names.setdefault("BRVM10", ("BRVM 10 (ancien indice)", "marche", True))
+    for code in sorted(idx_paths):
+        p = idx_paths[code]
+        rows = with_history(parse_csv(p) if p else [], hist_dir, code)
         if not rows:
             continue
         nm, typ, gele = names.get(code, (code, None, None))
@@ -351,5 +366,6 @@ if __name__ == "__main__":
     ap.add_argument("--src", required=True)
     ap.add_argument("--live")
     ap.add_argument("--out", default="data")
+    ap.add_argument("--hist", default="history", help="séances anciennes rattrapées (backfill_sika.py)")
     a = ap.parse_args()
-    build(a.src, a.live, a.out)
+    build(a.src, a.live, a.out, a.hist)

@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ["index.html", "vercel.json", "pipeline/**", ".github/workflows/**"]
+    paths: ["index.html", "vercel.json", "pipeline/**", "history/**", ".github/workflows/update.yml"]
 
 permissions:
   contents: write
