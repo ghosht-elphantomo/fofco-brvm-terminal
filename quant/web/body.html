@@ -1,0 +1,19 @@
+<div id="app">
+  <header class="top">
+    <div class="logo" title="FOFCO Quant Terminal">FQT</div>
+    <form class="cmd" id="cmdForm" autocomplete="off">
+      <label for="cmd">&lt;CMD&gt;</label>
+      <input id="cmd" spellcheck="false" placeholder="Ticker ou fonction : SNTS GP, QQQ BTST, MACRO, EVTS…  puis Entrée" aria-label="Ligne de commande">
+      <button class="go" type="submit">&lt;GO&gt;</button>
+      <div class="ac" id="ac" hidden></div>
+    </form>
+    <div class="clocks" id="clocks"></div>
+    <div class="feed" id="feed"><i></i><span id="feedTxt">—</span><button id="syncBtn" hidden title="Recopier tout de suite le dernier relevé GitHub">SYNC</button></div>
+  </header>
+  <nav class="fkeys" id="fkeys" aria-label="Fonctions"></nav>
+  <div class="secbar" id="secbar"></div>
+  <main id="main"><div class="empty">Chargement des données…</div></main>
+  <footer class="status" id="status"></footer>
+</div>
+<div class="tip" id="tip" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>

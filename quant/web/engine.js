@@ -1,7 +1,8 @@
-/* ================= CLAUDE × QUANT — quant engine (pure functions, no DOM) ================= */
+/* ================= FQT — quant engine (pure functions, no DOM) ================= */
 'use strict';
 
 /* Approximate effective Fed Funds rate by quarter (annual %). Used for cash yield and leveraged-ETF financing. */
+const RF_Y = { 2000: 6.2, 2001: 3.9, 2002: 1.7, 2003: 1.1, 2004: 1.35, 2005: 3.2, 2006: 5.0, 2007: 5.0, 2008: 1.9, 2009: .16, 2010: .18, 2011: .1, 2012: .14, 2013: .11, 2014: .09, 2015: .13, 2016: .4 };
 const RF_Q = {
   '2016Q3': .40, '2016Q4': .41, '2017Q1': .70, '2017Q2': .95, '2017Q3': 1.15, '2017Q4': 1.20, '2018Q1': 1.45, '2018Q2': 1.74,
   '2018Q3': 1.92, '2018Q4': 2.22, '2019Q1': 2.40, '2019Q2': 2.40, '2019Q3': 2.15, '2019Q4': 1.64, '2020Q1': 1.26,
@@ -13,7 +14,8 @@ const RF_Q = {
 function rfFor(d) {
   const k = d.slice(0, 4) + 'Q' + (Math.floor((+d.slice(5, 7) - 1) / 3) + 1);
   if (RF_Q[k] != null) return RF_Q[k];
-  return d < '2016' ? .4 : 3.6; // after the table: last known level
+  const y = +d.slice(0, 4); if (RF_Y[y] != null) return RF_Y[y];
+  return y < 2000 ? 5 : 3.6; // after the table: last known level
 }
 
 const U = {
@@ -273,22 +275,22 @@ function dtw(a, b, band) {
   return prev[n] / n;
 }
 function zn(a) { const m = U.mean(a); let s = 0; for (const v of a) s += (v - m) ** 2; s = Math.sqrt(s / a.length) || 1; return a.map(v => (v - m) / s); }
-function analogMatch(M, MK, { W = 64, H = 26, K = 6 } = {}) {
+function analogMatch(M, MK, { W = 64, H = 26, K = 6, name = 'SELF' } = {}) {
   const t0 = performance.now(), n = M.n;
-  const libs = [{ k: 'QQQ', a: Array.from(M.c, Math.log) }, ...Object.keys(MK).map(k => ({ k, a: MK[k].map(v => v == null ? NaN : Math.log(v)) }))];
+  const libs = [{ k: name, self: true, a: Array.from(M.c, Math.log) }, ...Object.keys(MK).map(k => ({ k, a: MK[k].map(v => v == null ? NaN : Math.log(v)) }))];
   const cur = libs[0].a.slice(n - W), zc = zn(cur), sdCur = Math.sqrt(U.mean(cur.map(v => (v - U.mean(cur)) ** 2)));
   const cand = []; let scanned = 0, thr = -1; const corrHist = new Uint32Array(40); const bar = [];
   for (const L of libs) {
     const a = L.a, len = a.length, P1 = new Float64Array(len + 1), P2 = new Float64Array(len + 1);
     for (let i = 0; i < len; i++) { const v = isFinite(a[i]) ? a[i] : 0; P1[i + 1] = P1[i] + v; P2[i + 1] = P2[i] + v * v; }
     let first = 0; while (first < len && !isFinite(a[first])) first++;
-    const lastEnd = L.k === 'QQQ' ? n - W - H - 1 : len - 1 - H;
+    const lastEnd = L.self ? n - W - H - 1 : len - 1 - H;
     for (let e = first + W - 1; e <= lastEnd; e++) {
       const s = e - W + 1, m = (P1[e + 1] - P1[s]) / W, vr = (P2[e + 1] - P2[s]) / W - m * m; if (vr <= 1e-12) continue;
       let dot = 0; for (let k = 0; k < W; k++) dot += zc[k] * a[s + k];
       const corr = dot / (W * Math.sqrt(vr)); scanned++;
       corrHist[Math.min(39, Math.max(0, Math.floor((corr + 1) * 20)))]++;
-      if (L.k === 'QQQ') bar.push(corr);
+      if (L.self) bar.push(corr);
       if (corr > thr) { cand.push({ k: L.k, e, corr, sd: Math.sqrt(vr), lib: L }); if (cand.length > 160) { cand.sort((x, y) => y.corr - x.corr); cand.length = 120; thr = cand[cand.length - 1].corr; } }
     }
   }
@@ -321,10 +323,10 @@ function bayes(M, R, Hf = 21) {
     { k: 'VOL 20J < 20%', f: i => M.vol20[i] < .20 },
     { k: 'RSI14 > 70', f: i => M.rsi14[i] > 70 },
     { k: 'DD 52S > −5%', f: i => M.c[i] / M.hi252[i] - 1 > -.05 },
-    { k: 'SYNC R > 0.6', f: i => R[i] > .6 },
     { k: 'EFFICIENCY > 0.3', f: i => M.er20[i] > .3 }
   ];
-  const i0 = 260, i1 = n - 1 - Hf, Y = [], X = [], fwd = [];
+  if (R) F.push({ k: 'SYNC R > 0.6', f: i => R[i] > .6 });
+  const i0 = Math.min(260, Math.max(60, n - 400)), i1 = n - 1 - Hf, Y = [], X = [], fwd = [];
   for (let i = i0; i <= i1; i++) { const r = M.tr[i + Hf] / M.tr[i] - 1; fwd.push(r); Y.push(r > 0 ? 1 : 0); X.push(F.map(ft => ft.f(i) ? 1 : 0)); }
   const T = Y.length, up = Y.reduce((a, b) => a + b, 0), dn = T - up, p0 = up / T;
   const cnt = F.map((_, k) => { let u1 = 0, d1 = 0; for (let t = 0; t < T; t++) if (X[t][k]) { if (Y[t]) u1++; else d1++; } return { u1, d1, u0: up - u1, d0: dn - d1 }; });

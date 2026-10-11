@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Data feed for the CLAUDE × QUANT terminal (standard library only, runs on GitHub Actions).
+"""Live feed for the FQT terminal (standard library only, runs on GitHub Actions every 15 minutes).
 
-  --mode live : QQQ quote + 5-minute bars (Yahoo), 48 BRVM stocks + indices (brvm.org).
-                Refreshes the daily history too if it is behind the last completed session.
-  --mode eod  : same, and always rebuilds history.json (QQQ OHLCV+dividends, 21 markets).
-
---state : folder holding the previous history.json / brvm.json (the workflow restores it from the
-          quant-data branch; quant/seed/ is the initial seed). Updated in place.
---out   : the deployable site (index.html + data/*.json + data/feed_daily.json for the claude.ai sync).
-Any source that fails keeps the last good snapshot, so the site never goes blank.
+Writes into --out/data :
+  live.json    QQQ quote + 5-minute bars (Yahoo, falls back to Nasdaq), and any source errors
+  quotes.json  latest quotes keyed by terminal id: QQQ, the 48 BRVM stocks and the BRVM indices
+  session.json the BRVM session as published on brvm.org (also kept in --state for the next run)
+In eod mode the session is appended to seed/brvm_daily.csv (one line per stock per session).
+The full history (data/s/*.json, summary.json…) is rebuilt separately by build_terminal.py.
+Any source that fails keeps the last good values, so the site never goes blank.
 """
 import argparse, csv, datetime as dt, io, json, os, re, shutil, sys, time, urllib.parse, urllib.request
 from zoneinfo import ZoneInfo
@@ -22,6 +21,7 @@ YSYM = {"0050": "0050.TW"}
 UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 FR_MONTHS = {m: i + 1 for i, m in enumerate(["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
                                             "août", "septembre", "octobre", "novembre", "décembre"])}
+NY = ZoneInfo("America/New_York")
 FR_DAYS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
 
 
@@ -95,76 +95,6 @@ def session_open(meta, now):
     return bool(reg) and reg.get("start", 0) <= now < reg.get("end", 0)
 
 
-def daily(sym):
-    res = chart(YSYM.get(sym, sym), "10y", "1d", "div|split")
-    meta, off = res["meta"], res["meta"].get("gmtoffset", 0)
-    q = res["indicators"]["quote"][0]
-    divs = {}
-    for v in ((res.get("events") or {}).get("dividends") or {}).values():
-        d = day_of(v["date"], off)
-        divs[d] = divs.get(d, 0) + float(v["amount"])
-    rows = []
-    for i, t in enumerate(res["timestamp"]):
-        c = q["close"][i]
-        if c is None:
-            continue
-        o, h, l = q["open"][i] or c, q["high"][i] or c, q["low"][i] or c
-        rows.append([day_of(t, off), round(o, 2), round(h, 2), round(l, 2), round(c, 2), int(q["volume"][i] or 0),
-                     round(divs.get(day_of(t, off), 0), 4)])
-    if rows and session_open(meta, time.time()):
-        rows = rows[:-1]  # the session in progress is not a finished daily bar
-    return rows
-
-
-NY = ZoneInfo("America/New_York")
-GH_PRICES = "https://raw.githubusercontent.com/yennanliu/finance_data/main/data/prices/{}.csv"
-
-
-def daily_gh(sym):
-    """Daily bars from github.com/yennanliu/finance_data (Yahoo, refreshed nightly). Reachable from Actions runners."""
-    rows = []
-    for r in csv.DictReader(io.StringIO(get(GH_PRICES.format(sym.lower())).decode("utf8"))):
-        if not r.get("close"):
-            continue
-        c = round(float(r["close"]), 2)
-        rows.append([r["date"], round(float(r["open"] or c), 2), round(float(r["high"] or c), 2), round(float(r["low"] or c), 2),
-                     c, int(float(r["volume"] or 0)), round(float(r["div"]), 4) if r.get("div") else 0])
-    return rows
-
-
-def build_history(prev, source="gh"):
-    fetch = daily_gh if source == "gh" else daily
-    qqq = fetch("QQQ")
-    if len(qqq) < 1500:
-        raise ValueError(f"QQQ history too short ({len(qqq)})")
-    H = {"asof": qqq[-1][0], "src": "Yahoo Finance daily" + (" via yennanliu/finance_data" if source == "gh" else ""), "d": [], "o": [], "h": [], "l": [], "c": [], "v": [],
-         "div": [], "mk": {}}
-    for r in qqq:
-        for k, v in zip(("d", "o", "h", "l", "c", "v", "div"), r):
-            H[k].append(v)
-    old = {}
-    if prev:
-        for t, arr in (prev.get("mk") or {}).items():
-            old[t] = dict(zip(prev["d"], arr))
-    for t in MARKETS:
-        try:
-            rows = fetch(t)
-            m = {r[0]: r[4] for r in rows}
-            first = rows[0][0]
-        except Exception as e:  # noqa: BLE001
-            log("market failed, keeping previous:", t, e)
-            m, first = {d: v for d, v in old.get(t, {}).items() if v is not None}, None
-            first = min(m) if m else "9999"
-        out, last = [], None
-        for d in H["d"]:
-            if d in m:
-                last = m[d]
-            out.append(None if (d < first or last is None) else round(last, 2))
-        H["mk"][t] = out
-        time.sleep(0.4)
-    return H
-
-
 def live_quote():
     res = chart("QQQ", "5d", "5m")
     meta, off, now = res["meta"], res["meta"].get("gmtoffset", 0), time.time()
@@ -230,29 +160,6 @@ def nasdaq_live():
             "vol": 0, "time": pts[-1][0], "src": "nasdaq"}, \
         {"t": [b[0] for b in bars], "o": [r2(b[1]) for b in bars], "h": [r2(b[2]) for b in bars],
          "l": [r2(b[3]) for b in bars], "c": [r2(b[4]) for b in bars], "v": [0 for _ in bars]}
-
-
-def nasdaq_daily_append(hist):
-    """Append missing QQQ sessions from Nasdaq when Yahoo is unavailable (markets carried forward)."""
-    frm = hist["d"][-1]
-    j = json.loads(get(f"https://api.nasdaq.com/api/quote/QQQ/historical?assetclass=etf&fromdate={frm}&limit=60", headers=NQ_H))
-    rows = (((j.get("data") or {}).get("tradesTable") or {}).get("rows")) or []
-    new = []
-    for r in rows:
-        m, d_, y = r["date"].split("/")
-        d = f"{y}-{m}-{d_}"
-        c = money(r.get("close"))
-        if d > hist["d"][-1] and c:
-            new.append((d, money(r.get("open")) or c, money(r.get("high")) or c, money(r.get("low")) or c, c,
-                        int(num(str(r.get("volume", "0")).replace(",", "")) or 0)))
-    for d, o, h, l, c, v in sorted(new):
-        for k, val in zip(("d", "o", "h", "l", "c", "v", "div"), (d, o, h, l, c, v, 0)):
-            hist[k].append(val)
-        for t in hist["mk"]:
-            hist["mk"][t].append(hist["mk"][t][-1])
-    if new:
-        hist["asof"] = hist["d"][-1]
-    return len(new)
 
 
 # ------------------------------------------------------------------ BRVM
@@ -408,41 +315,21 @@ def archive_brvm(b):
     log("archived BRVM session", b["asof"])
 
 
-def roll_year(last):
-    """First EOD run of a new year: the last committed session becomes the YTD base."""
-    ref = load("brvm_ref.json")
-    if not ref:
-        return
-    closes = {r["t"]: r["c"] for r in last["rows"]}
-    for t, f in ref["rows"].items():
-        c = closes.get(t)
-        if not c:
-            continue
-        if f.get("per") and f.get("cref"):
-            f["per"] = round(f["per"] * c / f["cref"], 2)
-        f["cref"], f["ytd"] = c, 0.0
-    for x in last.get("idx", []):
-        ref["idx"][x["k"]] = {"vref": x["v"], "ytd": 0.0}
-    for x in last.get("sect", []):
-        ref["sect"][x["k"]] = {"vref": x["v"], "ytd": 0.0}
-    ref["ref"] = last["asof"]
-    dump(ref, os.path.join(DATA, "brvm_ref.json"))
-    log("YTD base rolled to", last["asof"])
-
-
 # ------------------------------------------------------------------ main
+IDX_CODE = {"BRVM-C": "BRVMC", "BRVM-30": "BRVM30", "BRVM-PRES": "BRVMPR", "BRVM-PRIN": "BRVMPA", "TL": "BRVM-TEL", "CD": "BRVM-CD",
+            "SF": "BRVM-SF", "CB": "BRVM-CB", "IN": "BRVM-IN", "EN": "BRVM-EN", "SP": "BRVM-SP"}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--mode", choices=["live", "eod"], default="live")
     ap.add_argument("--out", default=os.path.join(ROOT, "_site"))
     ap.add_argument("--state", default=DATA)
     a = ap.parse_args()
-    st = a.state
+    st, out_data = a.state, os.path.join(a.out, "data")
     os.makedirs(st, exist_ok=True)
-    out_data = os.path.join(a.out, "data")
     os.makedirs(out_data, exist_ok=True)
 
-    hist = load("history.json", folder=st) or load("history.json")
     live, intraday = None, None
     try:
         live, intraday = live_quote()
@@ -455,52 +342,34 @@ def main():
         except Exception as e2:  # noqa: BLE001
             fail("nasdaq_live", e2)
 
-    behind = bool(hist and live and live["day"] > hist["asof"] and live["state"] != "REGULAR")
-    if a.mode == "eod" or not hist or behind:
-        for source in ("gh", "yahoo"):
-            try:
-                new = build_history(hist, source)
-                if not hist or new["d"][-1] >= hist["d"][-1]:
-                    hist = new
-                    dump(hist, os.path.join(st, "history.json"))
-                    log("history rebuilt from", source, hist["asof"], len(hist["d"]))
-                break
-            except Exception as e:  # noqa: BLE001
-                fail(source + "_history", e)
-        if hist and live and live["day"] > hist["asof"] and live["state"] != "REGULAR":
-            try:
-                n = nasdaq_daily_append(hist)
-                if n:
-                    dump(hist, os.path.join(st, "history.json"))
-                    log("history +", n, "session(s) from nasdaq")
-            except Exception as e2:  # noqa: BLE001
-                fail("nasdaq_history", e2)
-
     brvm = load("brvm.json", folder=st) or load("brvm.json")
     try:
         fresh = scrape_brvm(brvm)
         log("BRVM", len(fresh["rows"]), "rows", fresh["asof"])
-        if brvm and fresh["asof"][:4] > brvm["asof"][:4]:
-            roll_year(brvm)
-        dump(fresh, os.path.join(st, "brvm.json"))
         brvm = fresh
+        dump(brvm, os.path.join(st, "brvm.json"))
         if a.mode == "eod":
-            archive_brvm(fresh)
+            archive_brvm(brvm)
+            dump(brvm, os.path.join(DATA, "brvm.json"))
     except Exception as e:  # noqa: BLE001
         fail("brvm", e)
 
-    dump(hist, os.path.join(out_data, "history.json"))
-    dump(brvm, os.path.join(out_data, "brvm.json"))
-    shutil.copy(os.path.join(DATA, "brvm_ref.json"), os.path.join(out_data, "brvm_ref.json"))
-    dump({"ts": int(time.time()), "qqq": live, "intraday": intraday, "errors": ERRORS}, os.path.join(out_data, "live.json"))
-    rows = []
-    for i in range(max(0, len(hist["d"]) - 40), len(hist["d"])):
-        rows.append({"d": hist["d"][i], "o": hist["o"][i], "h": hist["h"][i], "l": hist["l"][i], "c": hist["c"][i],
-                     "v": hist["v"][i], "div": hist["div"][i], "mk": {k: v[i] for k, v in hist["mk"].items()}})
-    dump({"asof": hist["asof"], "ts": int(time.time()), "rows": rows}, os.path.join(out_data, "feed_daily.json"))
-    shutil.copy(os.path.join(ROOT, "index.html"), os.path.join(a.out, "index.html"))
-    open(os.path.join(a.out, ".nojekyll"), "w").close()
-    log("site written to", a.out)
+    q = {}
+    if live:
+        q["QQQ"] = {"last": live["price"], "pct": live["chg"], "d": live["day"], "o": live["open"], "h": live["dayHigh"], "l": live["dayLow"], "vol": live["vol"] or None}
+    if brvm:
+        for r in brvm.get("rows", []):
+            q[r["t"]] = {"last": r["c"], "pct": round(r["vj"] / 100, 6), "d": brvm["asof"], "o": r.get("o"), "vol": r.get("vol"), "val": int((r.get("vol") or 0) * r["c"])}
+        for x in brvm.get("idx", []) + brvm.get("sect", []):
+            code = IDX_CODE.get(x.get("k"))
+            if code and x.get("v"):
+                q[code] = {"last": x["v"], "pct": round((x.get("vj") or 0) / 100, 6), "d": brvm["asof"]}
+    now = int(time.time())
+    dump({"ts": now, "qqq": live, "intraday": intraday, "errors": ERRORS}, os.path.join(out_data, "live.json"))
+    dump({"ts": now, "asof": brvm.get("asof") if brvm else None, "q": q}, os.path.join(out_data, "quotes.json"))
+    if brvm:
+        dump(brvm, os.path.join(out_data, "session.json"))
+    log("feed written:", len(q), "quotes")
     return 0
 
 
