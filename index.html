@@ -334,10 +334,11 @@ const PRESETS = [
   { n: 'RSI très tendu', f: { u: 'tous', tendu: true } },
 ];
 const S = { core: null, live: null, status: null, events: null, idx: null, hist: {}, M: {}, byT: {}, cal: [], tab: 'marche', fiche: 'SNTS',
-  prefs: { filters: { ...DEF_FILTERS }, sort: { k: 'q', dir: -1 }, screens: [], watch: [], chart: { ov: ['ma50', 'ma200'], pane: 'vol', range: 252, kind: 'candle' }, g: { sym: 'BRVMC', range: 252, ma: ['sma200'], vol: true, log: false, cross: true }, v: 2 },
+  prefs: { filters: { ...DEF_FILTERS }, sort: { k: 'q', dir: -1 }, screens: [], watch: [], chart: { ov: ['ma50', 'ma200'], pane: 'vol', range: 252, kind: 'candle' }, g: { sym: 'BRVMC', range: 252, ma: ['sma200'], vol: true, scale: 'log', cross: true }, v: 3 },
   db: null, prefRef: null };
-function migratePrefs() { const P = S.prefs; if (!P.g) P.g = { sym: 'BRVMC', range: 252, ma: ['sma200'], vol: true, log: false, cross: true };
-  if ((P.v || 1) < 2) { if (P.chart && !P.chart.ov.includes('ma200')) P.chart.ov.push('ma200'); P.v = 2; } }
+function migratePrefs() { const P = S.prefs; if (!P.g) P.g = { sym: 'BRVMC', range: 252, ma: ['sma200'], vol: true, scale: 'log', cross: true };
+  if ((P.v || 1) < 2) { if (P.chart && !P.chart.ov.includes('ma200')) P.chart.ov.push('ma200'); }
+  if ((P.v || 1) < 3) { P.g.scale = 'log'; delete P.g.log; } P.v = 3; }
 function loadPrefs() { try { const p = JSON.parse(localStorage.getItem('fofco-prefs') || 'null'); if (p) Object.assign(S.prefs, p, { filters: { ...DEF_FILTERS, ...(p.filters || {}) } }); } catch (e) {} migratePrefs(); }
 let prefTimer = null;
 function savePrefs() { try { localStorage.setItem('fofco-prefs', JSON.stringify(S.prefs)); } catch (e) {}
@@ -687,9 +688,10 @@ async function vGraphique() {
     <div class="tbar"><select id="g_sym" aria-label="Symbole" style="max-width:100%;font-weight:600">${symOpts}</select><span class="chip">1D · quotidien</span>
       <div class="seg" id="g_rng">${[[22, '1M'], [63, '3M'], [126, '6M'], [252, '1A'], [756, '3A'], [1260, '5A'], [2520, '10A'], [0, 'Max']].map(([n, l]) => `<button data-r="${n}" class="${g.range === n ? 'on' : ''}">${l}</button>`).join('')}</div></div>
     <div class="tbar" id="g_tog">${[['sma200', 'SMA 200'], ['sma50', 'SMA 50'], ['sma20', 'SMA 20']].map(([k, l]) => `<button class="btn sm ${g.ma.includes(k) ? 'on' : ''}" data-ma="${k}">${l}</button>`).join('')}
-      <button class="btn sm ${g.vol ? 'on' : ''}" data-o="vol">Volume</button><button class="btn sm ${g.cross ? 'on' : ''}" data-o="cross">Croisements SMA 200</button><button class="btn sm ${g.log ? 'on' : ''}" data-o="log">Échelle log</button><button class="btn sm ${g.line ? 'on' : ''}" data-o="line">Ligne</button></div>
+      <button class="btn sm ${g.vol ? 'on' : ''}" data-o="vol">Volume</button><button class="btn sm ${g.cross ? 'on' : ''}" data-o="cross">Croisements SMA 200</button><button class="btn sm ${g.line ? 'on' : ''}" data-o="line">Ligne</button></div>
+    <div class="tbar"><span class="eyebrow">Échelle</span><div class="seg" id="g_scale" role="group" aria-label="Échelle des prix">${[['lin', 'Linéaire'], ['log', 'Exponentielle (log)'], ['pct', '%']].map(([k, l]) => `<button data-s="${k}" class="${g.scale === k ? 'on' : ''}" aria-pressed="${g.scale === k}">${l}</button>`).join('')}</div></div>
     <div class="chart tall" id="g_ch"><div class="tvlg" id="g_lg">Chargement…</div></div>
-    <p class="note" style="margin-top:6px" id="g_note">Pincez ou utilisez la molette pour zoomer, glissez pour remonter jusqu’en 2006. Double-clic sur l’échelle de prix pour la recadrer.</p></div>
+    <p class="note" style="margin-top:6px" id="g_note">Pincez ou utilisez la molette pour zoomer, glissez pour remonter jusqu’en 2006. En exponentielle, un même écart vertical vaut le même pourcentage : la SMA 200 reste lisible sur 20 ans. Double-clic sur l’échelle de prix pour la recadrer.</p></div>
     <div class="grid g2"><div class="panel" id="g_sma"></div><div class="panel" id="g_reg"></div></div></div>`;
   $('#g_sym').onchange = e => { g.sym = e.target.value; savePrefs(); killCharts(); vGraphique(); };
   $('#g_tog').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.ma) { const k = b.dataset.ma, i = g.ma.indexOf(k); if (i >= 0) g.ma.splice(i, 1); else g.ma.push(k); } else g[b.dataset.o] = !g[b.dataset.o]; savePrefs(); killCharts(); vGraphique(); };
@@ -706,14 +708,14 @@ async function vGraphique() {
   const box = $('#g_ch');
   const ch = mkChart(box, { crosshair: { mode: 0, vertLine: { labelBackgroundColor: ink }, horzLine: { labelBackgroundColor: ink } },
     timeScale: { borderVisible: false, rightOffset: 6, barSpacing: 7, minBarSpacing: 0.02 },
-    rightPriceScale: { borderVisible: false, mode: g.log ? 1 : 0, scaleMargins: { top: 0.08, bottom: g.vol && v ? 0.22 : 0.06 } },
+    rightPriceScale: { borderVisible: false, mode: ({ lin: 0, log: 1, pct: 2 })[g.scale] ?? 1, scaleMargins: { top: 0.08, bottom: g.vol && v ? 0.22 : 0.06 } },
     watermark: { visible: true, text: g.sym, fontSize: 44, color: hexA(tok('--muted'), 0.12), fontFamily: 'Bricolage Grotesque, sans-serif' },
     handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true } });
   const pf = { type: 'price', precision: isIdx ? 2 : 0, minMove: isIdx ? 0.01 : 1 };
   let ps;
   if (g.line) { ps = ch.addAreaSeries({ lineColor: ink, topColor: hexA(ink, 0.12), bottomColor: hexA(ink, 0), lineWidth: 2, priceFormat: pf }); ps.setData(c.map((x, i) => ({ time: ts(d[i]), value: x }))); }
   else { ps = ch.addCandlestickSeries({ upColor: up, downColor: dn, wickUpColor: up, wickDownColor: dn, borderVisible: false, priceFormat: pf }); ps.setData(c.map((x, i) => ({ time: ts(d[i]), open: o[i], high: h[i], low: l[i], close: x }))); }
-  for (const k of ['sma20', 'sma50', 'sma200']) if (g.ma.includes(k)) { const s = ch.addLineSeries({ color: smaCol[k], lineWidth: k === 'sma200' ? 2 : 1, priceLineVisible: false, lastValueVisible: k === 'sma200', crosshairMarkerVisible: false, priceFormat: pf }); s.setData(lineData(d, sma[k])); }
+  for (const k of ['sma20', 'sma50', 'sma200']) if (g.ma.includes(k)) { const s = ch.addLineSeries({ color: smaCol[k], lineWidth: k === 'sma200' ? 3 : 1, priceLineVisible: false, lastValueVisible: k === 'sma200', crosshairMarkerVisible: false, priceFormat: pf }); s.setData(lineData(d, sma[k])); }
   if (g.vol && v) { const vs = ch.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false });
     ch.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } }); vs.setData(v.map((x, i) => ({ time: ts(d[i]), value: x, color: hexA(i && c[i] < c[i-1] ? dn : up, 0.45) }))); }
   const st = smaStats(d, c, sma.sma200);
@@ -728,6 +730,9 @@ async function vGraphique() {
       + (v && g.vol ? `<br>Vol ${F.big(v[i])} titres` : ''); };
   legend(N - 1);
   ch.subscribeCrosshairMove(prm => { const i = prm && prm.time != null ? idxOf.get(prm.time) : undefined; legend(i != null ? i : N - 1); });
+  $('#g_scale').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; g.scale = b.dataset.s; savePrefs();
+    $$('#g_scale button').forEach(y => { y.classList.toggle('on', y === b); y.setAttribute('aria-pressed', y === b); });
+    ch.priceScale('right').applyOptions({ mode: ({ lin: 0, log: 1, pct: 2 })[g.scale] }); };
   $('#g_rng').onclick = e => { const b = e.target.closest('[data-r]'); if (!b) return; g.range = +b.dataset.r; savePrefs(); $$('#g_rng button').forEach(y => y.classList.toggle('on', y === b)); const sp = g.range || N; ch.timeScale().setVisibleLogicalRange({ from: Math.max(0, N - sp), to: N + 6 }); };
   if (isIdx) $('#g_note').textContent += ' Les indices ne publient que la clôture : chaque bougie va de la clôture de la veille à celle du jour.';
   // Lecture SMA 200 et régimes
