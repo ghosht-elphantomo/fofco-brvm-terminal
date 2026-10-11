@@ -1,0 +1,87 @@
+name: Amorçage de la base propre
+
+# À lancer une fois (onglet Actions) : construit la base « store » depuis les sources publiques.
+#   A : historique quotidien SikaFinance depuis 2006 (titres et indices)
+#   B : dividendes, avis et rapports BRVM, puis comptes (SikaFinance, OuestBourse, états financiers)
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Codes à limiter (séparés par des virgules), vide = tout"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Créer la branche store si besoin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code "$REPO" refs/heads/store >/dev/null; then exit 0; fi
+          mkdir s && cd s && git init -q -b store
+          git config user.name "fofco-bot"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "# Base de données FOFCO BRVM (sources publiques recoupées)" > README.md
+          git add -A && git commit -qm "Création de la base" && git push -q "$REPO" HEAD:store
+
+  prix:
+    needs: init
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Récupérer la base
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: git clone -q --depth 1 -b store "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/store
+      - name: Historique SikaFinance
+        run: python pipeline/store.py seed-prices --store /tmp/store --only "${{ github.event.inputs.only }}"
+      - name: Contrôle ponctuel avec un jeu public indépendant (rapport seulement)
+        continue-on-error: true
+        run: |
+          git clone -q --depth 1 https://github.com/harzat/brvm-data-public.git /tmp/verif
+          python pipeline/store.py verify --store /tmp/store --mirror /tmp/verif
+      - name: Enregistrer
+        run: |
+          cd /tmp/store
+          git config user.name "fofco-bot"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "Historique des cours (SikaFinance)" || exit 0
+          for i in 1 2 3; do git pull -q --rebase origin store && git push -q origin HEAD:store && break; sleep 5; done
+
+  avis:
+    needs: init
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Installer pdftotext
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils >/dev/null
+      - name: Récupérer la base
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: git clone -q --depth 1 -b store "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/store
+      - name: Dividendes BRVM (tous les avis de paiement)
+        run: python pipeline/store.py seed-dividends --store /tmp/store
+      - name: Avis et rapports BRVM
+        run: python pipeline/store.py seed-avis --store /tmp/store
+      - name: Comptes et free cash flow
+        run: python pipeline/store.py weekly --store /tmp/store
+      - name: Enregistrer
+        if: always()
+        run: |
+          cd /tmp/store
+          git config user.name "fofco-bot"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A && git commit -qm "Dividendes, avis, comptes" || exit 0
+          for i in 1 2 3; do git pull -q --rebase origin store && git push -q origin HEAD:store && break; sleep 5; done

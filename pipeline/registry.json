@@ -1,0 +1,810 @@
+{
+ "note": "Registre des titres cotés (BRVM). Les alias servent à reconnaître un titre dans les avis BRVM et les autres sources.",
+ "titres": [
+  {
+   "t": "ABJC",
+   "nom": "Servair Abidjan",
+   "nom_officiel": "SERVAIR ABIDJAN COTE D'IVOIRE",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "CI",
+   "sika": "ABJC.ci",
+   "aliases": [
+    "SERVAIR ABIDJAN",
+    "SERVAIR ABIDJAN CI",
+    "SERVAIR ABIDJAN COTE D IVOIRE"
+   ],
+   "ouestbourse": "servair-abidjan-cote-d-ivoire-abjc",
+   "brvm_rapports": "servair-abidjan-ci"
+  },
+  {
+   "t": "BBGC",
+   "nom": "Bridge Bank Group",
+   "nom_officiel": "BRIDGE BANK GROUP COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "BBGC.ci",
+   "aliases": [
+    "BRIDGE BANK GROUP",
+    "BRIDGE BANK GROUP CI",
+    "BRIDGE BANK GROUP COTE D IVOIRE"
+   ],
+   "ouestbourse": "bridge-bank-group-cote-d-ivoire-bbgc",
+   "brvm_rapports": "bbgci"
+  },
+  {
+   "t": "BICB",
+   "nom": "BIIC Bénin",
+   "nom_officiel": "BANQUE INTERNATIONALE POUR L’INDUSTRIE ET LE COMMERCE DU BENIN",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "BJ",
+   "sika": "BICB.bj",
+   "aliases": [
+    "BANQUE INTERNATIONALE POUR LINDUSTRIE ET LE COMMERCE DU BENIN",
+    "BICB",
+    "BIIC",
+    "BIIC BENIN",
+    "BIIC BN"
+   ],
+   "ouestbourse": "banque-internationale-pour-l-industrie-bicb",
+   "brvm_rapports": "biic"
+  },
+  {
+   "t": "BICC",
+   "nom": "BICI CI",
+   "nom_officiel": "BICI COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "BICC.ci",
+   "aliases": [
+    "BICI CI",
+    "BICI COTE D IVOIRE",
+    "BICICI"
+   ],
+   "ouestbourse": "bici-cote-d-ivoire-bicc",
+   "brvm_rapports": "bici-ci"
+  },
+  {
+   "t": "BNBC",
+   "nom": "Bernabé",
+   "nom_officiel": "BERNABE COTE D'IVOIRE",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "CI",
+   "sika": "BNBC.ci",
+   "aliases": [
+    "BERNABE",
+    "BERNABE CI",
+    "BERNABE COTE D IVOIRE"
+   ],
+   "ouestbourse": "bernabe-cote-d-ivoire-bnbc",
+   "brvm_rapports": "bernabe-ci"
+  },
+  {
+   "t": "BOAB",
+   "nom": "BOA Bénin",
+   "nom_officiel": "BANK OF AFRICA BENIN",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "BJ",
+   "sika": "BOAB.bj",
+   "aliases": [
+    "BANK OF AFRICA BENIN",
+    "BANK OF AFRICA BN",
+    "BOA BENIN",
+    "BOA BN"
+   ],
+   "ouestbourse": "bank-of-africa-benin-boab",
+   "brvm_rapports": "bank-africa-bn"
+  },
+  {
+   "t": "BOABF",
+   "nom": "BOA Burkina",
+   "nom_officiel": "BANK OF AFRICA BURKINA FASO",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "BF",
+   "sika": "BOABF.bf",
+   "aliases": [
+    "BANK OF AFRICA BF",
+    "BANK OF AFRICA BURKINA FASO",
+    "BOA BF",
+    "BOA BURKINA",
+    "BOA BURKINA FASO"
+   ],
+   "ouestbourse": "bank-of-africa-burkina-faso-boabf",
+   "brvm_rapports": "bank-africa-bf"
+  },
+  {
+   "t": "BOAC",
+   "nom": "BOA Côte d'Ivoire",
+   "nom_officiel": "BANK OF AFRICA COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "BOAC.ci",
+   "aliases": [
+    "BANK OF AFRICA CI",
+    "BANK OF AFRICA COTE D IVOIRE",
+    "BOA CI",
+    "BOA COTE D IVOIRE"
+   ],
+   "ouestbourse": "bank-of-africa-cote-d-ivoire-boac",
+   "brvm_rapports": "bank-africa-ci"
+  },
+  {
+   "t": "BOAM",
+   "nom": "BOA Mali",
+   "nom_officiel": "BANK OF AFRICA MALI",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "ML",
+   "sika": "BOAM.ml",
+   "aliases": [
+    "BANK OF AFRICA MALI",
+    "BANK OF AFRICA ML",
+    "BOA MALI",
+    "BOA ML"
+   ],
+   "ouestbourse": "bank-of-africa-mali-boam",
+   "brvm_rapports": "bank-africa-ml"
+  },
+  {
+   "t": "BOAN",
+   "nom": "BOA Niger",
+   "nom_officiel": "BANK OF AFRICA NIGER",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "NE",
+   "sika": "BOAN.ne",
+   "aliases": [
+    "BANK OF AFRICA NG",
+    "BANK OF AFRICA NIGER",
+    "BOA NG",
+    "BOA NIGER"
+   ],
+   "ouestbourse": "bank-of-africa-niger-boan",
+   "brvm_rapports": "bank-africa-ng"
+  },
+  {
+   "t": "BOAS",
+   "nom": "BOA Sénégal",
+   "nom_officiel": "BANK OF AFRICA SENEGAL",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "SN",
+   "sika": "BOAS.sn",
+   "aliases": [
+    "BANK OF AFRICA SENEGAL",
+    "BANK OF AFRICA SN",
+    "BOA SENEGAL",
+    "BOA SN"
+   ],
+   "ouestbourse": "bank-of-africa-senegal-boas",
+   "brvm_rapports": "bank-africa-sn"
+  },
+  {
+   "t": "CABC",
+   "nom": "Sicable CI",
+   "nom_officiel": "SICABLE COTE D'IVOIRE",
+   "secteur": "Industriels",
+   "banque": false,
+   "pays": "CI",
+   "sika": "CABC.ci",
+   "aliases": [
+    "SICABLE",
+    "SICABLE CI",
+    "SICABLE COTE D IVOIRE"
+   ],
+   "ouestbourse": "sicable-cote-d-ivoire-cabc",
+   "brvm_rapports": "sicable"
+  },
+  {
+   "t": "CBIBF",
+   "nom": "Coris Bank International BF",
+   "nom_officiel": "CORIS BANK INTERNATIONAL BURKINA FASO",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "BF",
+   "sika": "CBIBF.bf",
+   "aliases": [
+    "CORIS BANK",
+    "CORIS BANK BURKINA FASO",
+    "CORIS BANK INTERNATIONAL",
+    "CORIS BANK INTERNATIONAL BF",
+    "CORIS BANK INTERNATIONAL BURKINA FASO"
+   ],
+   "ouestbourse": "coris-bank-international-burkina-faso-cbibf",
+   "brvm_rapports": "coris-bank-international"
+  },
+  {
+   "t": "CFAC",
+   "nom": "CFAO Motors CI",
+   "nom_officiel": "CFAO MOTORS COTE D'IVOIRE",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "CI",
+   "sika": "CFAC.ci",
+   "aliases": [
+    "CFAO CI",
+    "CFAO MOTORS",
+    "CFAO MOTORS CI",
+    "CFAO MOTORS COTE D IVOIRE"
+   ],
+   "ouestbourse": "cfao-motors-cote-d-ivoire-cfac",
+   "brvm_rapports": "cfao-motors-ci"
+  },
+  {
+   "t": "CIEC",
+   "nom": "CIE CI",
+   "nom_officiel": "CIE COTE D'IVOIRE",
+   "secteur": "Services publics",
+   "banque": false,
+   "pays": "CI",
+   "sika": "CIEC.ci",
+   "aliases": [
+    "CIE",
+    "CIE CI",
+    "CIE COTE D IVOIRE"
+   ],
+   "ouestbourse": "cie-cote-d-ivoire-ciec",
+   "brvm_rapports": "cie-ci"
+  },
+  {
+   "t": "ECOC",
+   "nom": "Ecobank CI",
+   "nom_officiel": "ECOBANK COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "ECOC.ci",
+   "aliases": [
+    "ECOBANK CI",
+    "ECOBANK COTE D IVOIRE"
+   ],
+   "ouestbourse": "ecobank-cote-d-ivoire-ecoc",
+   "brvm_rapports": "ecobank-ci"
+  },
+  {
+   "t": "ETIT",
+   "nom": "Ecobank Transnational Togo",
+   "nom_officiel": "Ecobank Transnational Incorporated TOGO",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "TG",
+   "sika": "ETIT.tg",
+   "aliases": [
+    "ECOBANK TG",
+    "ECOBANK TRANSNATIONAL INCORPORATED",
+    "ECOBANK TRANSNATIONAL INCORPORATED TOGO",
+    "ECOBANK TRANSNATIONAL TOGO",
+    "ETI TG",
+    "ETI TOGO"
+   ],
+   "ouestbourse": "ecobank-transnational-incorporated-togo-etit",
+   "brvm_rapports": "ecobank-tg"
+  },
+  {
+   "t": "FTSC",
+   "nom": "Filtisac CI",
+   "nom_officiel": "FILTISAC COTE D'IVOIRE",
+   "secteur": "Industriels",
+   "banque": false,
+   "pays": "CI",
+   "sika": "FTSC.ci",
+   "aliases": [
+    "FILTISAC",
+    "FILTISAC CI",
+    "FILTISAC COTE D IVOIRE"
+   ],
+   "ouestbourse": "filtisac-cote-d-ivoire-ftsc",
+   "brvm_rapports": "filtisac-ci"
+  },
+  {
+   "t": "LNBB",
+   "nom": "Loterie Nationale du Bénin",
+   "nom_officiel": "LOTERIE NATIONALE DU BENIN",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "BJ",
+   "sika": "LNBB.bj",
+   "aliases": [
+    "LNB",
+    "LOTERIE NATIONALE DU BENIN"
+   ],
+   "ouestbourse": "loterie-nationale-du-benin-lnbb",
+   "brvm_rapports": "lnb"
+  },
+  {
+   "t": "NEIC",
+   "nom": "NEI CEDA CI",
+   "nom_officiel": "NEI-CEDA COTE D'IVOIRE",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "CI",
+   "sika": "NEIC.ci",
+   "aliases": [
+    "NEI CEDA",
+    "NEI CEDA CI",
+    "NEI CEDA COTE D IVOIRE"
+   ],
+   "ouestbourse": "nei-ceda-cote-d-ivoire-neic",
+   "brvm_rapports": "nei-ceda-ci"
+  },
+  {
+   "t": "NSBC",
+   "nom": "NSIA Banque",
+   "nom_officiel": "NSIA BANQUE COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "NSBC.ci",
+   "aliases": [
+    "NSIA BANQUE",
+    "NSIA BANQUE CI",
+    "NSIA BANQUE COTE D IVOIRE"
+   ],
+   "ouestbourse": "nsia-banque-cote-d-ivoire-nsbc",
+   "brvm_rapports": "nsbc"
+  },
+  {
+   "t": "NTLC",
+   "nom": "Nestlé CI",
+   "nom_officiel": "NESTLE COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "NTLC.ci",
+   "aliases": [
+    "NESTLE CI",
+    "NESTLE COTE D IVOIRE"
+   ],
+   "ouestbourse": "nestle-cote-d-ivoire-ntlc",
+   "brvm_rapports": "nestle-ci"
+  },
+  {
+   "t": "ONTBF",
+   "nom": "Onatel BF",
+   "nom_officiel": "ONATEL BURKINA FASO",
+   "secteur": "Télécoms",
+   "banque": false,
+   "pays": "BF",
+   "sika": "ONTBF.bf",
+   "aliases": [
+    "ONATEL",
+    "ONATEL BF",
+    "ONATEL BURKINA FASO"
+   ],
+   "ouestbourse": "onatel-burkina-faso-ontbf",
+   "brvm_rapports": "onatel-bf"
+  },
+  {
+   "t": "ORAC",
+   "nom": "Orange CI",
+   "nom_officiel": "ORANGE COTE D'IVOIRE",
+   "secteur": "Télécoms",
+   "banque": false,
+   "pays": "CI",
+   "sika": "ORAC.ci",
+   "aliases": [
+    "ORANGE CI",
+    "ORANGE COTE D IVOIRE"
+   ],
+   "ouestbourse": "orange-cote-d-ivoire-orac",
+   "brvm_rapports": "orange-ci"
+  },
+  {
+   "t": "ORGT",
+   "nom": "Oragroup Togo",
+   "nom_officiel": "ORAGROUP TOGO",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "TG",
+   "sika": "ORGT.tg",
+   "aliases": [
+    "ORAGROUP",
+    "ORAGROUP TOGO"
+   ],
+   "ouestbourse": "oragroup-togo-orgt",
+   "brvm_rapports": "oragroup"
+  },
+  {
+   "t": "PALC",
+   "nom": "PalmCI",
+   "nom_officiel": "PALM COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "PALC.ci",
+   "aliases": [
+    "PALM CI",
+    "PALM COTE D IVOIRE",
+    "PALMCI"
+   ],
+   "ouestbourse": "palm-cote-d-ivoire-palc",
+   "brvm_rapports": "palm-ci"
+  },
+  {
+   "t": "PRSC",
+   "nom": "Tractafric Motors",
+   "nom_officiel": "TRACTAFRIC MOTORS COTE D'IVOIRE",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "CI",
+   "sika": "PRSC.ci",
+   "aliases": [
+    "TRACTAFRIC CI",
+    "TRACTAFRIC MOTORS",
+    "TRACTAFRIC MOTORS CI",
+    "TRACTAFRIC MOTORS COTE D IVOIRE"
+   ],
+   "ouestbourse": "tractafric-motors-cote-d-ivoire-prsc",
+   "brvm_rapports": "tractafric-ci"
+  },
+  {
+   "t": "SAFC",
+   "nom": "SAFCA CI",
+   "nom_officiel": "SAFCA COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SAFC.ci",
+   "aliases": [
+    "ALIOS FINANCE CI",
+    "SAFCA",
+    "SAFCA CI",
+    "SAFCA COTE D IVOIRE"
+   ],
+   "ouestbourse": "safca-cote-d-ivoire-safc",
+   "brvm_rapports": "safca-ci"
+  },
+  {
+   "t": "SCRC",
+   "nom": "Sucrivoire",
+   "nom_officiel": "SUCRIVOIRE COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SCRC.ci",
+   "aliases": [
+    "SUCRIVOIRE",
+    "SUCRIVOIRE CI",
+    "SUCRIVOIRE COTE D IVOIRE"
+   ],
+   "ouestbourse": "sucrivoire-cote-d-ivoire-scrc",
+   "brvm_rapports": "sucrivoire"
+  },
+  {
+   "t": "SDCC",
+   "nom": "SODE CI",
+   "nom_officiel": "SODE COTE D'IVOIRE",
+   "secteur": "Services publics",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SDCC.ci",
+   "aliases": [
+    "SODE CI",
+    "SODE COTE D IVOIRE",
+    "SODECI"
+   ],
+   "ouestbourse": "sode-cote-d-ivoire-sdcc",
+   "brvm_rapports": "sodeci"
+  },
+  {
+   "t": "SDSC",
+   "nom": "Africa Global Logistics",
+   "nom_officiel": "AFRICA GLOBAL LOGISTICS COTE D'IVOIRE",
+   "secteur": "Industriels",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SDSC.ci",
+   "aliases": [
+    "AFRICA GLOBAL LOGISTICS",
+    "AFRICA GLOBAL LOGISTICS CI",
+    "AFRICA GLOBAL LOGISTICS COTE D IVOIRE",
+    "AGL CI",
+    "BOLLORE AFRICA LOGISTICS CI",
+    "BOLLORE TRANSPORT ET LOGISTICS",
+    "BOLLORE TRANSPORT ET LOGISTICS CI"
+   ],
+   "ouestbourse": "africa-global-logistics-cote-d-ivoire-sdsc",
+   "brvm_rapports": "bollore-transport-logistics"
+  },
+  {
+   "t": "SEMC",
+   "nom": "Eviosys Packaging Siem",
+   "nom_officiel": "EVIOSYS PACKAGING SIEM COTE D'IVOIRE",
+   "secteur": "Industriels",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SEMC.ci",
+   "aliases": [
+    "CROWN SIEM",
+    "CROWN SIEM CI",
+    "EVIOSYS PACKAGING SIEM",
+    "EVIOSYS PACKAGING SIEM CI",
+    "EVIOSYS PACKAGING SIEM COTE D IVOIRE",
+    "SIEM"
+   ],
+   "ouestbourse": "eviosys-packaging-siem-cote-d-ivoire-semc",
+   "brvm_rapports": "crown-siem-ci"
+  },
+  {
+   "t": "SGBC",
+   "nom": "Société Générale CI",
+   "nom_officiel": "SOCIETE GENERALE COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "SGBC.ci",
+   "aliases": [
+    "SGBCI",
+    "SGCI",
+    "SOCIETE GENERALE CI",
+    "SOCIETE GENERALE COTE D IVOIRE"
+   ],
+   "ouestbourse": "societe-generale-cote-d-ivoire-sgbc",
+   "brvm_rapports": "sgci"
+  },
+  {
+   "t": "SHEC",
+   "nom": "Vivo Energy CI",
+   "nom_officiel": "VIVO ENERGY COTE D'IVOIRE",
+   "secteur": "Énergie",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SHEC.ci",
+   "aliases": [
+    "SHELL CI",
+    "VIVO ENERGY CI",
+    "VIVO ENERGY COTE D IVOIRE"
+   ],
+   "ouestbourse": "vivo-energy-cote-d-ivoire-shec",
+   "brvm_rapports": "vivo-energy-ci"
+  },
+  {
+   "t": "SIBC",
+   "nom": "SIB CI",
+   "nom_officiel": "SOCIETE IVOIRIENNE DE BANQUE COTE D'IVOIRE",
+   "secteur": "Services financiers",
+   "banque": true,
+   "pays": "CI",
+   "sika": "SIBC.ci",
+   "aliases": [
+    "SIB",
+    "SIB CI",
+    "SOCIETE IVOIRIENNE DE BANQUE COTE D IVOIRE"
+   ],
+   "ouestbourse": "societe-ivoirienne-de-banque-cote-d-ivoire-sibc",
+   "brvm_rapports": "sib"
+  },
+  {
+   "t": "SICC",
+   "nom": "Sicor",
+   "nom_officiel": "SICOR COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SICC.ci",
+   "aliases": [
+    "SICOR",
+    "SICOR CI",
+    "SICOR COTE D IVOIRE"
+   ],
+   "ouestbourse": "sicor-cote-d-ivoire-sicc",
+   "brvm_rapports": "sicor"
+  },
+  {
+   "t": "SIVC",
+   "nom": "Erium",
+   "nom_officiel": "ERIUM COTE D’IVOIRE",
+   "secteur": "Industriels",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SIVC.ci",
+   "aliases": [
+    "AIR LIQUIDE CI",
+    "ERIUM",
+    "ERIUM CI",
+    "ERIUM COTE DIVOIRE"
+   ],
+   "ouestbourse": "erium-cote-d-ivoire-sivc",
+   "brvm_rapports": "air-liquide-ci"
+  },
+  {
+   "t": "SLBC",
+   "nom": "Solibra CI",
+   "nom_officiel": "SOLIBRA COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SLBC.ci",
+   "aliases": [
+    "SOLIBRA",
+    "SOLIBRA CI",
+    "SOLIBRA COTE D IVOIRE"
+   ],
+   "ouestbourse": "solibra-cote-d-ivoire-slbc",
+   "brvm_rapports": "solibra"
+  },
+  {
+   "t": "SMBC",
+   "nom": "SMB CI",
+   "nom_officiel": "SMB COTE D'IVOIRE",
+   "secteur": "Énergie",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SMBC.ci",
+   "aliases": [
+    "SMB",
+    "SMB CI",
+    "SMB COTE D IVOIRE"
+   ],
+   "ouestbourse": "smb-cote-d-ivoire-smbc",
+   "brvm_rapports": "smb"
+  },
+  {
+   "t": "SNTS",
+   "nom": "Sonatel",
+   "nom_officiel": "SONATEL SENEGAL",
+   "secteur": "Télécoms",
+   "banque": false,
+   "pays": "SN",
+   "sika": "SNTS.sn",
+   "aliases": [
+    "SONATEL",
+    "SONATEL SENEGAL",
+    "SONATEL SN"
+   ],
+   "ouestbourse": "sonatel-senegal-snts",
+   "brvm_rapports": "sonatel"
+  },
+  {
+   "t": "SOGC",
+   "nom": "SOGB",
+   "nom_officiel": "SOGB COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SOGC.ci",
+   "aliases": [
+    "SOGB",
+    "SOGB CI",
+    "SOGB COTE D IVOIRE"
+   ],
+   "ouestbourse": "sogb-cote-d-ivoire-sogc",
+   "brvm_rapports": "sogb"
+  },
+  {
+   "t": "SPHC",
+   "nom": "SAPH CI",
+   "nom_officiel": "SAPH COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SPHC.ci",
+   "aliases": [
+    "SAPH",
+    "SAPH CI",
+    "SAPH COTE D IVOIRE"
+   ],
+   "ouestbourse": "saph-cote-d-ivoire-sphc",
+   "brvm_rapports": "saph-ci"
+  },
+  {
+   "t": "STAC",
+   "nom": "Setao CI",
+   "nom_officiel": "SETAO COTE D'IVOIRE",
+   "secteur": "Industriels",
+   "banque": false,
+   "pays": "CI",
+   "sika": "STAC.ci",
+   "aliases": [
+    "SETAO",
+    "SETAO CI",
+    "SETAO COTE D IVOIRE"
+   ],
+   "ouestbourse": "setao-cote-d-ivoire-stac",
+   "brvm_rapports": "setao-ci"
+  },
+  {
+   "t": "STBC",
+   "nom": "Sitab",
+   "nom_officiel": "SITAB COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "STBC.ci",
+   "aliases": [
+    "SITAB",
+    "SITAB CI",
+    "SITAB COTE D IVOIRE"
+   ],
+   "ouestbourse": "sitab-cote-d-ivoire-stbc",
+   "brvm_rapports": "sitab"
+  },
+  {
+   "t": "SVOC",
+   "nom": "Movis CI",
+   "nom_officiel": null,
+   "secteur": "Autre",
+   "banque": false,
+   "pays": "CI",
+   "sika": "SVOC.ci",
+   "aliases": [
+    "MOVIS",
+    "MOVIS CI"
+   ]
+  },
+  {
+   "t": "TTLC",
+   "nom": "TotalEnergies CI",
+   "nom_officiel": "TOTALENERGIES MARKETING COTE D'IVOIRE",
+   "secteur": "Énergie",
+   "banque": false,
+   "pays": "CI",
+   "sika": "TTLC.ci",
+   "aliases": [
+    "TOTAL",
+    "TOTAL CI",
+    "TOTALENERGIES CI",
+    "TOTALENERGIES MARKETING CI",
+    "TOTALENERGIES MARKETING COTE D IVOIRE"
+   ],
+   "ouestbourse": "totalenergies-marketing-cote-d-ivoire-ttlc",
+   "brvm_rapports": "total"
+  },
+  {
+   "t": "TTLS",
+   "nom": "TotalEnergies Sénégal",
+   "nom_officiel": "TOTALENERGIES MARKETING SENEGAL",
+   "secteur": "Énergie",
+   "banque": false,
+   "pays": "SN",
+   "sika": "TTLS.sn",
+   "aliases": [
+    "TOTAL SENEGAL",
+    "TOTAL SN",
+    "TOTALENERGIES MARKETING SENEGAL",
+    "TOTALENERGIES MARKETING SN",
+    "TOTALENERGIES SENEGAL"
+   ],
+   "ouestbourse": "totalenergies-marketing-senegal-ttls",
+   "brvm_rapports": "total-senegal-sa"
+  },
+  {
+   "t": "UNLC",
+   "nom": "Unilever CI",
+   "nom_officiel": "UNILEVER COTE D'IVOIRE",
+   "secteur": "Consommation de base",
+   "banque": false,
+   "pays": "CI",
+   "sika": "UNLC.ci",
+   "aliases": [
+    "UNILEVER CI",
+    "UNILEVER COTE D IVOIRE"
+   ],
+   "ouestbourse": "unilever-cote-d-ivoire-unlc",
+   "brvm_rapports": "unilever-ci"
+  },
+  {
+   "t": "UNXC",
+   "nom": "Uniwax CI",
+   "nom_officiel": "UNIWAX COTE D'IVOIRE",
+   "secteur": "Consommation discrétionnaire",
+   "banque": false,
+   "pays": "CI",
+   "sika": "UNXC.ci",
+   "aliases": [
+    "UNIWAX",
+    "UNIWAX CI",
+    "UNIWAX COTE D IVOIRE"
+   ],
+   "ouestbourse": "uniwax-cote-d-ivoire-unxc",
+   "brvm_rapports": "uniwax-ci"
+  }
+ ]
+}

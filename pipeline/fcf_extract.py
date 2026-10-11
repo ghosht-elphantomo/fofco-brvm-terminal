@@ -78,14 +78,17 @@ def numbers_in(segment):
 
 def parse_tft(text):
     lines = text.splitlines()
-    found, unit_hint = {}, None
+    found, unit_hint, last_unit = {}, None, None
     for i, raw in enumerate(lines):
         ln = norm(raw)
-        if unit_hint is None:
-            if "millions" in ln and "fcfa" in ln:
-                unit_hint = 1.0
-            elif "milliers" in ln and "fcfa" in ln:
-                unit_hint = 1e-3
+        if "millions" in ln:
+            last_unit = 1.0
+        elif "milliers" in ln:
+            last_unit = 1e-3
+        elif re.search(r"\ben (f\s?cfa|xof)\b", ln):
+            last_unit = 1e-6
+        if "cfo" not in found and PATTERNS["cfo"].search(ln):
+            unit_hint = last_unit
         for key, pat in PATTERNS.items():
             if key in found:
                 continue
@@ -117,15 +120,16 @@ def pdf_text(url):
 
 
 def scale(found, unit_hint, ca):
-    """Ramène en millions de FCFA. Sans unité écrite, on choisit l'échelle la plus plausible face au CA."""
-    if unit_hint:
-        return unit_hint
+    """Ramène en millions de FCFA. L'unité écrite dans le document est vérifiée face au chiffre d'affaires
+    (flux opérationnels entre 0,05 % et 200 % du CA) ; à défaut, on prend l'échelle la plus plausible."""
     cfo = abs((found.get("cfo") or (0, 0))[0] or 0)
-    if not cfo or not ca:
+    if not cfo:
         return None
-    for div in (1.0, 1e-3, 1e-6):
-        r = cfo * div / ca
-        if 0.0005 <= r <= 2:
+    cands = ([unit_hint] if unit_hint else []) + [1.0, 1e-3, 1e-6]
+    if not ca:
+        return unit_hint
+    for div in cands:
+        if 0.0005 <= cfo * div / ca <= 2:
             return div
     return None
 
