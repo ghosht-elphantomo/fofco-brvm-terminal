@@ -1,0 +1,21 @@
+name: Nettoyage des branches FQT
+
+# Ponctuel : supprime les branches de l'ancien terminal FQT (déplacé dans MY-BBG-TERMINAL). Ce fichier est retiré juste après.
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/cleanup-fqt.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Supprimer quant-data et quant-raw
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git init -q /tmp/x && cd /tmp/x
+          for b in quant-data quant-raw; do git push "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" --delete "$b" || true; done
