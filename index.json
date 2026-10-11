@@ -1,0 +1,146 @@
+[
+ {
+  "url": "https://ouestbourse.com/fr/actions/sonatel-senegal-snts",
+  "method": "GET",
+  "file": "ouestbourse.com_fr_actions_sonatel-senegal-snts_d44726.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 512625,
+  "final_url": "https://ouestbourse.com/fr/actions/sonatel-senegal-snts"
+ },
+ {
+  "url": "https://ouestbourse.com/fr/actions/sonatel-senegal-snts/finances",
+  "method": "GET",
+  "file": "ouestbourse.com_fr_actions_sonatel-senegal-snts_finances_a2e429.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 512911,
+  "final_url": "https://ouestbourse.com/fr/actions/sonatel-senegal-snts/finances"
+ },
+ {
+  "url": "https://ouestbourse.com/fr/actions/sonatel-senegal-snts/dividendes",
+  "method": "GET",
+  "file": "ouestbourse.com_fr_actions_sonatel-senegal-snts_dividendes_beb2fb.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 486954,
+  "final_url": "https://ouestbourse.com/fr/actions/sonatel-senegal-snts/dividendes"
+ },
+ {
+  "url": "https://ouestbourse.com/fr/screener",
+  "method": "GET",
+  "file": "ouestbourse.com_fr_screener_b21a09.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 218544,
+  "final_url": "https://ouestbourse.com/fr/screener"
+ },
+ {
+  "url": "https://ouestbourse.com/fr/graphiques",
+  "method": "GET",
+  "file": "ouestbourse.com_fr_graphiques_717977.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 46450,
+  "final_url": "https://ouestbourse.com/fr/graphiques"
+ },
+ {
+  "url": "https://ouestbourse.com/sitemap.xml",
+  "method": "GET",
+  "file": "ouestbourse.com_sitemap.xml_64eb71.html",
+  "status": 200,
+  "type": "application/xml",
+  "size": 14396,
+  "final_url": "https://ouestbourse.com/sitemap.xml"
+ },
+ {
+  "url": "https://www.brvm.org/fr/esv/paiement-de-dividendes?page=15",
+  "method": "GET",
+  "file": "brvm.org_fr_esv_paiement-de-dividendes_page_15_286032.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 63968,
+  "final_url": "https://www.brvm.org/fr/esv/paiement-de-dividendes?page=15"
+ },
+ {
+  "url": "https://www.brvm.org/fr/esv/paiement-de-dividendes?page=40",
+  "method": "GET",
+  "file": "brvm.org_fr_esv_paiement-de-dividendes_page_40_e9ae82.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 63460,
+  "final_url": "https://www.brvm.org/fr/esv/paiement-de-dividendes?page=40"
+ },
+ {
+  "url": "https://www.brvm.org/fr/marche/avis-et-publications/avis?page=60",
+  "method": "GET",
+  "file": "brvm.org_fr_marche_avis-et-publications_avis_page_60_7f93a1.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 54023,
+  "final_url": "https://www.brvm.org/fr/marche/avis-et-publications/avis?page=60"
+ },
+ {
+  "url": "https://www.brvm.org/fr/bulletins-officiels-de-la-cote?page=150",
+  "method": "GET",
+  "file": "brvm.org_fr_bulletins-officiels-de-la-cote_page_150_e31a4d.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 49952,
+  "final_url": "https://www.brvm.org/fr/bulletins-officiels-de-la-cote?page=150"
+ },
+ {
+  "url": "https://www.brvm.org/fr/bulletins-officiels-de-la-cote?page=400",
+  "method": "GET",
+  "file": "brvm.org_fr_bulletins-officiels-de-la-cote_page_400_6ba0d2.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 49952,
+  "final_url": "https://www.brvm.org/fr/bulletins-officiels-de-la-cote?page=400"
+ },
+ {
+  "url": "https://www.brvm.org/fr/emetteurs/type-annonces/communiques",
+  "method": "GET",
+  "file": "brvm.org_fr_emetteurs_type-annonces_communiques_f283b0.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 67765,
+  "final_url": "https://www.brvm.org/fr/emetteurs/type-annonces/communiques"
+ },
+ {
+  "url": "https://www.brvm.org/fr/emetteurs/type-annonces/notations-financieres",
+  "method": "GET",
+  "file": "brvm.org_fr_emetteurs_type-annonces_notations-financieres_80cf36.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 68009,
+  "final_url": "https://www.brvm.org/fr/emetteurs/type-annonces/notations-financieres"
+ },
+ {
+  "url": "https://www.brvm.org/fr/rapports-societe-cotes/sgci",
+  "method": "GET",
+  "file": "brvm.org_fr_rapports-societe-cotes_sgci_4ae3ea.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 58049,
+  "final_url": "https://www.brvm.org/fr/rapports-societe-cotes/sgci"
+ },
+ {
+  "url": "https://www.sikafinance.com/marches/cotation_SNTS.sn",
+  "method": "GET",
+  "file": "sikafinance.com_marches_cotation_SNTS.sn_b8cac3.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 39288,
+  "final_url": "https://www.sikafinance.com/marches/cotation_SNTS.sn"
+ },
+ {
+  "url": "https://www.african-markets.com/en/stock-markets/brvm/listed-companies/company?code=SNTS",
+  "method": "GET",
+  "file": "african-markets.com_en_stock-markets_brvm_listed-companies_company_code_SNTS_ce3bc0.html",
+  "status": 200,
+  "type": "text/html; charset=utf-8",
+  "size": 420104,
+  "final_url": "https://www.african-markets.com/en/stock-markets/brvm/listed-companies/company?code=SNTS"
+ }
+]
