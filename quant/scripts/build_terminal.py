@@ -204,6 +204,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--session", default=None, help="brvm.json from scrape.py (same-day official BRVM values)")
     ap.add_argument("--cache", default=None)
+    ap.add_argument("--extra", default=None, help="dossier brut écrit par fetch_extra.py (branche quant-raw)")
+    ap.add_argument("--fcf", default=None, help="history/fcf.json : flux de trésorerie BRVM lus dans les états financiers")
     a = ap.parse_args()
     out, sdir = a.out, os.path.join(a.out, "s")
     os.makedirs(sdir, exist_ok=True)

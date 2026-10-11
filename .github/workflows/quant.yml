@@ -1,8 +1,9 @@
 name: quant-data
 
-# Terminal FQT (dossier quant/) : relève QQQ (Yahoo/Nasdaq) et la séance BRVM (brvm.org) toutes les 15 min,
-# reconstruit toute la base chaque soir (BRVM depuis 2006, US, macro) et publie le site complet
-# (index.html + data/) sur la branche quant-data, réécrite à chaque passage.
+# Terminal FQT (dossier quant/) : relève QQQ (Yahoo/Nasdaq), la séance BRVM (brvm.org) et les actualités toutes les 15 min,
+# reconstruit toute la base chaque soir (BRVM depuis 2006, US, macro, FRED, Nasdaq, SEC, CBOE, CNN, Banque mondiale)
+# et publie le site complet (index.html + data/) sur la branche quant-data, réécrite à chaque passage.
+# Les données brutes (séries Nasdaq, comptes SEC, bulletins BRVM...) vivent sur la branche quant-raw.
 # Heures UTC, lun-ven : BRVM 09:00-15:30, Nasdaq 13:30-20:00.
 on:
   schedule:
@@ -30,7 +31,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
 
@@ -45,22 +46,54 @@ jobs:
 
       - name: Restaurer le site précédent (branche quant-data)
         run: |
-          mkdir -p /tmp/site /tmp/state
+          mkdir -p /tmp/site /tmp/state /tmp/raw
           cp quant/seed/brvm.json /tmp/state/brvm.json
           if git fetch -q --depth 1 origin quant-data; then
             git archive FETCH_HEAD | tar -x -C /tmp/site || true
             if [ -f /tmp/site/data/session.json ]; then cp /tmp/site/data/session.json /tmp/state/brvm.json; fi
           fi
+          mkdir -p /tmp/site/data
+
+      - name: Restaurer les données brutes (branche quant-raw, EOD)
+        if: steps.mode.outputs.mode == 'eod'
+        run: |
+          if git fetch -q --depth 1 origin quant-raw; then git archive FETCH_HEAD | tar -x -C /tmp/raw || true; fi
+          sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils >/dev/null || true
 
       - name: Relever les cours (QQQ + séance BRVM)
         run: python3 quant/scripts/scrape.py --mode "${{ steps.mode.outputs.mode }}" --state /tmp/state --out /tmp/site
+
+      - name: Actualités (flux RSS)
+        continue-on-error: true
+        run: timeout 120 python3 quant/scripts/fetch_extra.py --out /tmp/newsraw --only "" --news /tmp/site/data/news.json
+
+      - name: Sources complémentaires (EOD)
+        if: steps.mode.outputs.mode == 'eod'
+        continue-on-error: true
+        env:
+          SEC_UA: ${{ secrets.SEC_UA }}
+        run: timeout 1800 python3 quant/scripts/fetch_extra.py --out /tmp/raw
 
       - name: Reconstruire la base complète (EOD ou base absente)
         run: |
           if [ "${{ steps.mode.outputs.mode }}" = "eod" ] || [ ! -f /tmp/site/data/summary.json ]; then
             git clone -q --depth 1 https://github.com/harzat/brvm-data-public.git /tmp/brvmsrc
-            python3 quant/scripts/build_terminal.py --brvm-src /tmp/brvmsrc --out /tmp/site/data --session /tmp/state/brvm.json
+            python3 quant/scripts/build_terminal.py --brvm-src /tmp/brvmsrc --out /tmp/site/data --session /tmp/state/brvm.json --extra /tmp/raw --fcf history/fcf.json
           fi
+
+      - name: Publier les données brutes (branche quant-raw, EOD)
+        if: steps.mode.outputs.mode == 'eod'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd /tmp/raw
+          rm -rf .git
+          git init -q -b quant-raw
+          git config user.name "quant-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Brut $(date -u +'%d/%m/%Y %H:%M') UTC" || exit 0
+          git push -q -f "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git" quant-raw
 
       - name: Publier sur la branche quant-data
         env:
