@@ -10,7 +10,8 @@
 --out   : the deployable site (index.html + data/*.json + data/feed_daily.json for the claude.ai sync).
 Any source that fails keeps the last good snapshot, so the site never goes blank.
 """
-import argparse, datetime as dt, json, os, re, shutil, sys, time, urllib.parse, urllib.request
+import argparse, csv, datetime as dt, io, json, os, re, shutil, sys, time, urllib.parse, urllib.request
+from zoneinfo import ZoneInfo
 from html.parser import HTMLParser
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -115,11 +116,28 @@ def daily(sym):
     return rows
 
 
-def build_history(prev):
-    qqq = daily("QQQ")
+NY = ZoneInfo("America/New_York")
+GH_PRICES = "https://raw.githubusercontent.com/yennanliu/finance_data/main/data/prices/{}.csv"
+
+
+def daily_gh(sym):
+    """Daily bars from github.com/yennanliu/finance_data (Yahoo, refreshed nightly). Reachable from Actions runners."""
+    rows = []
+    for r in csv.DictReader(io.StringIO(get(GH_PRICES.format(sym.lower())).decode("utf8"))):
+        if not r.get("close"):
+            continue
+        c = round(float(r["close"]), 2)
+        rows.append([r["date"], round(float(r["open"] or c), 2), round(float(r["high"] or c), 2), round(float(r["low"] or c), 2),
+                     c, int(float(r["volume"] or 0)), round(float(r["div"]), 4) if r.get("div") else 0])
+    return rows
+
+
+def build_history(prev, source="gh"):
+    fetch = daily_gh if source == "gh" else daily
+    qqq = fetch("QQQ")
     if len(qqq) < 1500:
         raise ValueError(f"QQQ history too short ({len(qqq)})")
-    H = {"asof": qqq[-1][0], "src": "Yahoo Finance daily", "d": [], "o": [], "h": [], "l": [], "c": [], "v": [],
+    H = {"asof": qqq[-1][0], "src": "Yahoo Finance daily" + (" via yennanliu/finance_data" if source == "gh" else ""), "d": [], "o": [], "h": [], "l": [], "c": [], "v": [],
          "div": [], "mk": {}}
     for r in qqq:
         for k, v in zip(("d", "o", "h", "l", "c", "v", "div"), r):
@@ -130,7 +148,7 @@ def build_history(prev):
             old[t] = dict(zip(prev["d"], arr))
     for t in MARKETS:
         try:
-            rows = daily(t)
+            rows = fetch(t)
             m = {r[0]: r[4] for r in rows}
             first = rows[0][0]
         except Exception as e:  # noqa: BLE001
@@ -186,7 +204,11 @@ def money(x):
 def nasdaq_live():
     j = json.loads(get("https://api.nasdaq.com/api/quote/QQQ/chart?assetclass=etf", headers=NQ_H))
     d = j["data"]
+    def regular(t):
+        lt = dt.datetime.fromtimestamp(t, NY)
+        return (9, 30) <= (lt.hour, lt.minute) < (16, 0)
     pts = [(int(p["x"]) // 1000, float(p["y"])) for p in d.get("chart") or [] if p.get("y") is not None]
+    pts = [p for p in pts if regular(p[0])] or pts
     if not pts:
         raise ValueError("no chart points")
     price = money(d.get("lastSalePrice")) or pts[-1][1]
@@ -199,7 +221,7 @@ def nasdaq_live():
         else:
             cur = [b, y, y, y, y, 0]
             bars.append(cur)
-    day = dt.datetime.fromtimestamp(pts[-1][0] - 4 * 3600, dt.timezone.utc).date().isoformat()
+    day = dt.datetime.fromtimestamp(pts[-1][0], NY).date().isoformat()
     mstat = str(d.get("marketStatus") or "").upper()
     state = "REGULAR" if "OPEN" in mstat and "PRE" not in mstat and "AFTER" not in mstat else "PRE" if "PRE" in mstat else "POST" if "AFTER" in mstat else "CLOSED"
     r2 = lambda v: round(float(v), 2)  # noqa: E731
@@ -435,22 +457,24 @@ def main():
 
     behind = bool(hist and live and live["day"] > hist["asof"] and live["state"] != "REGULAR")
     if a.mode == "eod" or not hist or behind:
-        try:
-            new = build_history(hist)
-            if not hist or new["d"][-1] >= hist["d"][-1]:
-                hist = new
-                dump(hist, os.path.join(st, "history.json"))
-                log("history rebuilt", hist["asof"], len(hist["d"]))
-        except Exception as e:  # noqa: BLE001
-            fail("yahoo_history", e)
-            if hist:
-                try:
-                    n = nasdaq_daily_append(hist)
-                    if n:
-                        dump(hist, os.path.join(st, "history.json"))
-                        log("history +", n, "sessions (nasdaq)")
-                except Exception as e2:  # noqa: BLE001
-                    fail("nasdaq_history", e2)
+        for source in ("gh", "yahoo"):
+            try:
+                new = build_history(hist, source)
+                if not hist or new["d"][-1] >= hist["d"][-1]:
+                    hist = new
+                    dump(hist, os.path.join(st, "history.json"))
+                    log("history rebuilt from", source, hist["asof"], len(hist["d"]))
+                break
+            except Exception as e:  # noqa: BLE001
+                fail(source + "_history", e)
+        if hist and live and live["day"] > hist["asof"] and live["state"] != "REGULAR":
+            try:
+                n = nasdaq_daily_append(hist)
+                if n:
+                    dump(hist, os.path.join(st, "history.json"))
+                    log("history +", n, "session(s) from nasdaq")
+            except Exception as e2:  # noqa: BLE001
+                fail("nasdaq_history", e2)
 
     brvm = load("brvm.json", folder=st) or load("brvm.json")
     try:
