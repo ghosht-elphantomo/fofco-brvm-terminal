@@ -135,6 +135,7 @@ tbody tr:hover td.stick{background:var(--surface2)}
 .gauge span{flex:1;height:6px;border-radius:3px;background:var(--surface2)}
 .gauge span.on{background:var(--c)}
 
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:50;background:var(--ink);color:var(--bg);padding:10px 14px;border-radius:10px;font-size:13px;max-width:min(92vw,520px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
 .hide-sm{} @media (max-width:640px){.hide-sm{display:none} h1{font-size:22px} .chart{height:280px} .brand span{display:none}}
 @media (prefers-reduced-motion:no-preference){.fade{animation:f .25s ease-out}@keyframes f{from{opacity:.4}to{opacity:1}}}
 </style>
@@ -150,6 +151,7 @@ tbody tr:hover td.stick{background:var(--surface2)}
   </div>
 </header>
 <main class="wrap" id="view"><div class="empty">Chargement des données…</div></main>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>
@@ -536,6 +538,21 @@ function computeEventFlags() {
   }
 }
 
+/* ============================== Actualisation à la demande ============================== */
+// Lance la tâche planifiée qui recopie la branche `data` du dépôt GitHub vers cette page (claude.ai uniquement).
+const TRIGGER_ID = 'trig_016Qa2A6WBKw4LWg1rgY8g5X';
+let toastTimer = null;
+function toast(msg, ms = 6000) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms); }
+async function refreshNow(btn) {
+  let mcp = null; try { mcp = window.claude && window.claude.use ? await window.claude.use('mcp') : null; } catch (e) {}
+  if (!mcp) { toast('L’actualisation à la demande fonctionne depuis claude.ai. Les données se mettent aussi à jour toutes les heures pendant la séance.'); return; }
+  btn.disabled = true; btn.textContent = 'Envoi…';
+  try { await mcp.callTool('Claude Code Remote', 'fire_trigger', { trigger_id: TRIGGER_ID }, { cache: false });
+    toast('Mise à jour lancée. La page se recharge d’elle-même dans 2 à 4 minutes avec les cours du dernier relevé (différé 15 min).', 9000);
+    btn.textContent = 'Demandée'; }
+  catch (e) { const c = e && e.code; btn.disabled = false; btn.textContent = 'Actualiser';
+    toast(c === 'rate_limited' ? 'Trop de demandes rapprochées : réessaie dans quelques minutes.' : c === 'not_granted' || c === 'consent_required' ? 'Autorisation refusée : la page ne peut pas lancer la mise à jour. Tu peux l’autoriser depuis le menu Autorisations de la page.' : c === 'server_not_connected' || c === 'server_not_found' ? 'Le connecteur Claude Code Remote n’est pas disponible sur ce compte.' : 'La mise à jour n’a pas pu être lancée (' + (c || 'erreur') + '). Les données se mettent quand même à jour toutes les heures.', 9000); } }
+
 /* ============================== Rendu commun ============================== */
 const TABS = [['marche', 'Marché'], ['screener', 'Screener'], ['fiche', 'Fiche'], ['strategie', 'Stratégie'], ['saison', 'Saisonnalité'], ['dividendes', 'Dividendes'],
   ['indices', 'Indices'], ['classements', 'Classements'], ['avis', 'Avis'], ['fofco', 'FOFCO'], ['fraicheur', 'Fraîcheur']];
@@ -569,7 +586,8 @@ function sessionInfo() { const L = S.live && S.live._meta || {}; const st = S.st
   return { open, maj: L.maj_brvm, date: L.maj_brvm_date, src: L.origine || L.source, releve: L.releve_utc }; }
 function renderHeader() {
   const si = sessionInfo();
-  $('#sess').innerHTML = `<span class="dot ${si.open ? 'on' : ''}"></span><span>${si.open ? 'Séance ouverte · différé 15 min' : 'Séance fermée'}<br><b class="num">${si.maj ? F.iso(si.maj) + ' ' + si.maj.slice(11, 16) + ' GMT' : F.iso(si.date)}</b></span>`;
+  $('#sess').innerHTML = `<span class="dot ${si.open ? 'on' : ''}"></span><span>${si.open ? 'Séance ouverte · différé 15 min' : 'Séance fermée'}<br><b class="num">${si.maj ? F.iso(si.maj) + ' ' + si.maj.slice(11, 16) + ' GMT' : F.iso(si.date)}</b></span>${window.claude ? '<button class="btn sm" id="refreshBtn" title="Recopier le dernier relevé du dépôt GitHub">Actualiser</button>' : ''}`;
+  const rb = $('#refreshBtn'); if (rb) rb.onclick = () => refreshNow(rb);
   const li = (S.live && S.live.indices) || {}, mk = (S.live && S.live.marche) || {};
   const it = [['BRVMC', 'BRVM-C'], ['BRVM30', 'BRVM-30'], ['BRVMPR', 'Prestige']].map(([k, n]) => { const x = li[k] || {}; const ci = S.core.idx[k];
     const v = x.valeur ?? (ci && last(ci.c)), vr = x.variation; return `<div>${n} <b class="num">${F.n(v, 2)}</b> <span class="${cls(vr)} num">${F.p(vr, 2)}</span></div>`; });
@@ -1153,7 +1171,7 @@ function vFraicheur() {
     <div class="tw"><table><tbody>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td style="white-space:normal">${r[1]}</td><td class="num">${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table></div>
     ${susp.length ? `<div class="panel"><h3>Cotations suspendues</h3>${susp.map(([t, v]) => `<div>${chip(t, 'r')} depuis le ${F.iso(v.date)} · avis ${esc(v.avis || '')}</div>`).join('')}</div>` : ''}
     <div class="panel"><h2>Méthode</h2><div class="note" style="max-width:none;display:grid;gap:8px;font-size:13px;color:var(--ink)">
-      <p><b>Mise à jour.</b> Une tâche GitHub relève brvm.org (cours officiels) et SikaFinance (plus haut, plus bas, valeur) toutes les 15 minutes pendant la séance, fusionne le miroir public des historiques, puis reconstruit les fichiers. Les cours BRVM sont eux-mêmes différés de 15 minutes. Les CSV du miroir sont lus dans leur ordre réel (clôture, ouverture, plus haut, plus bas).</p>
+      <p><b>Mise à jour.</b> Une GitHub Action du dépôt fofco-brvm-terminal relève brvm.org (cours officiels) et SikaFinance (plus haut, plus bas, valeur) toutes les 15 minutes pendant la séance, fusionne le miroir public des historiques, puis reconstruit les fichiers sur la branche data. Cette page privée les recopie toutes les heures en séance (et à 19 h 40 GMT), ou tout de suite avec le bouton Actualiser. Les cours BRVM sont eux-mêmes différés de 15 minutes. Les CSV du miroir sont lus dans leur ordre réel (clôture, ouverture, plus haut, plus bas).</p>
       <p><b>Indicateurs.</b> MM 20/50/100, RSI 14 (Wilder), MACD 12/26/9, stochastique 14 lissé 3, Bollinger 20 ±2σ, Z-score 252 (minimum 20, très étiré au-delà de 2,2), Supertrend ATR 10 × 3, ADX/DI 14, OBV, Donchian 252, cassures ATR 14 sur 20 séances, Ichimoku 9/26/52, profil de volume 36 niveaux (zone de valeur 70 %), doubles sommets/creux (pivots 3 %, tolérance 2 %, 5–60 séances).</p>
       <p><b>Phases.</b> Distance au plus haut 20 séances (seuil 3,2 %), histogramme MACD, RSI (60) et MM50. Une phase s’affiche à sa deuxième séance consécutive. Tension : RSI ≥ 70 ou ≤ 30, cours > MM20 + 10 %, ou hausse > 20 % en 20 séances.</p>
       <p><b>Scores.</b> Pondérations et seuils publiés par BRVMetrics (méthode v1.20) ; les sous-composantes sont calculées ici. Qualité : tendance 30, timing 25, prix payé 20, risque 15, dividende 10 ; garde-fous RSI > 70, Z > 2,2, +25 % en 20 séances, liquidité < 35. Contexte : marché 45, comptes 30, liquidité 25. Note des comptes : 5 critères à 20 %, pairs du secteur ou banques / non-banques. Liquidité : valeur moyenne 50 % (points log : 100 k → 0, 500 k → 30, 2 M → 50, 10 M → 75, 50 M → 100), fréquence 30 %, écart haut-bas 20 %. Aucun de ces scores ne prédit le rendement futur : les tests publiés ne trouvent aucun indicateur isolé rentable après frais.</p>
