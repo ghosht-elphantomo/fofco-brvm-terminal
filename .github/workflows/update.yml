@@ -43,7 +43,9 @@ jobs:
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp index.html vercel.json /tmp/out/
+          python pipeline/wrap_page.py index.html /tmp/out/index.html
+          cp index.html /tmp/out/page.html
+          cp vercel.json /tmp/out/
           cd /tmp/out
           git init -q -b data
           git config user.name "fofco-bot"
