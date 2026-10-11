@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ["index.html", "pipeline/**", ".github/workflows/**"]
+    paths: ["index.html", "vercel.json", "pipeline/**", ".github/workflows/**"]
 
 permissions:
   contents: write
@@ -43,7 +43,7 @@ jobs:
         env:
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp index.html /tmp/out/index.html
+          cp index.html vercel.json /tmp/out/
           cd /tmp/out
           git init -q -b data
           git config user.name "fofco-bot"

@@ -9,7 +9,7 @@
 :root{
   --bg:#EEF1EC; --surface:#FFFFFF; --surface2:#E4E9E2; --ink:#14201A; --muted:#5B6961; --line:#D3DBD2; --grid:#E6EBE4;
   --accent:#946410; --accent-soft:#F2E7CE; --accent-ink:#5E3F06;
-  --up:#14774A; --down:#B4361F; --warn:#9C6400; --up-soft:#DAEEE1; --down-soft:#F6DED7; --warn-soft:#F4E7C6;
+  --up:#14774A; --down:#B4361F; --warn:#9C6400; --up-soft:#DAEEE1; --down-soft:#F6DED7; --warn-soft:#F4E7C6; --sma200:#1F57D6;
   --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --f-body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
@@ -18,11 +18,11 @@
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0C1310; --surface:#131C18; --surface2:#1A2520; --ink:#E3EBE5; --muted:#91A198; --line:#25322B; --grid:#1C2722;
   --accent:#E3AE4F; --accent-soft:#33291A; --accent-ink:#F4D79E;
-  --up:#45C285; --down:#F2765F; --warn:#E6AA3E; --up-soft:#15301F; --down-soft:#3A1C16; --warn-soft:#382C12; color-scheme:dark}}
+  --up:#45C285; --down:#F2765F; --warn:#E6AA3E; --up-soft:#15301F; --down-soft:#3A1C16; --warn-soft:#382C12; --sma200:#6C9BFF; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0C1310; --surface:#131C18; --surface2:#1A2520; --ink:#E3EBE5; --muted:#91A198; --line:#25322B; --grid:#1C2722;
   --accent:#E3AE4F; --accent-soft:#33291A; --accent-ink:#F4D79E;
-  --up:#45C285; --down:#F2765F; --warn:#E6AA3E; --up-soft:#15301F; --down-soft:#3A1C16; --warn-soft:#382C12; color-scheme:dark}
+  --up:#45C285; --down:#F2765F; --warn:#E6AA3E; --up-soft:#15301F; --down-soft:#3A1C16; --warn-soft:#382C12; --sma200:#6C9BFF; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-body);-webkit-font-smoothing:antialiased}
 a{color:var(--accent)}
@@ -122,6 +122,11 @@ tbody tr:hover td.stick{background:var(--surface2)}
 /* Graphiques */
 .chart{width:100%;height:340px;position:relative}
 .chart.sm{height:150px}
+.chart.tall{height:min(70vh,640px);min-height:340px}
+.tvlg{position:absolute;left:10px;top:8px;max-width:calc(100% - 80px);z-index:3;pointer-events:none;font:12px/1.5 var(--f-mono);color:var(--muted);text-shadow:0 0 4px var(--surface)}
+.tvlg b{color:var(--ink);font-family:var(--f-body);font-size:13px}
+.tvlg .o{margin-right:8px}
+.tbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
 .chart.xs{height:120px}
 .spark{display:block;width:100%;height:36px}
 .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:11.5px;color:var(--muted);margin-top:6px}
@@ -329,9 +334,11 @@ const PRESETS = [
   { n: 'RSI très tendu', f: { u: 'tous', tendu: true } },
 ];
 const S = { core: null, live: null, status: null, events: null, idx: null, hist: {}, M: {}, byT: {}, cal: [], tab: 'marche', fiche: 'SNTS',
-  prefs: { filters: { ...DEF_FILTERS }, sort: { k: 'q', dir: -1 }, screens: [], watch: [], chart: { ov: ['ma20', 'ma50', 'ma100'], pane: 'vol', range: 252, kind: 'candle' } },
+  prefs: { filters: { ...DEF_FILTERS }, sort: { k: 'q', dir: -1 }, screens: [], watch: [], chart: { ov: ['ma50', 'ma200'], pane: 'vol', range: 252, kind: 'candle' }, g: { sym: 'BRVMC', range: 252, ma: ['sma200'], vol: true, log: false, cross: true }, v: 2 },
   db: null, prefRef: null };
-function loadPrefs() { try { const p = JSON.parse(localStorage.getItem('fofco-prefs') || 'null'); if (p) Object.assign(S.prefs, p, { filters: { ...DEF_FILTERS, ...(p.filters || {}) } }); } catch (e) {} }
+function migratePrefs() { const P = S.prefs; if (!P.g) P.g = { sym: 'BRVMC', range: 252, ma: ['sma200'], vol: true, log: false, cross: true };
+  if ((P.v || 1) < 2) { if (P.chart && !P.chart.ov.includes('ma200')) P.chart.ov.push('ma200'); P.v = 2; } }
+function loadPrefs() { try { const p = JSON.parse(localStorage.getItem('fofco-prefs') || 'null'); if (p) Object.assign(S.prefs, p, { filters: { ...DEF_FILTERS, ...(p.filters || {}) } }); } catch (e) {} migratePrefs(); }
 let prefTimer = null;
 function savePrefs() { try { localStorage.setItem('fofco-prefs', JSON.stringify(S.prefs)); } catch (e) {}
   clearTimeout(prefTimer); prefTimer = setTimeout(async () => { if (S.prefRef) { try { await S.prefRef.set({ p: JSON.stringify(S.prefs), at: new Date().toISOString() }); } catch (e) {} } }, 1500); }
@@ -339,15 +346,19 @@ async function initPrefSync() { try { if (!window.claude || !window.claude.use) 
     const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]); if (!db || !user) return;
     const id = await user.id(); if (!id) return; S.prefRef = db.doc(`data/users/${id}/prefs`);
     const snap = await S.prefRef.get();
-    if (snap.exists) { const p = JSON.parse(snap.data().p || '{}'); Object.assign(S.prefs, p, { filters: { ...DEF_FILTERS, ...(p.filters || {}) } }); try { localStorage.setItem('fofco-prefs', JSON.stringify(S.prefs)); } catch (e) {} render(); }
+    if (snap.exists) { const p = JSON.parse(snap.data().p || '{}'); Object.assign(S.prefs, p, { filters: { ...DEF_FILTERS, ...(p.filters || {}) } }); migratePrefs(); try { localStorage.setItem('fofco-prefs', JSON.stringify(S.prefs)); } catch (e) {} render(); }
     else savePrefs();
   } catch (e) { /* synchronisation indisponible : les préférences restent dans ce navigateur */ } }
 
 /* ============================== Données ============================== */
+function patchIdx(idx) { // la dernière valeur d'indice publiée par brvm.org remplace ou complète la série du miroir
+  const li = (S.live && S.live.indices) || {}, ld = isoDay(S.live && S.live._meta && S.live._meta.maj_brvm_date); if (!ld) return;
+  for (const k of Object.keys(li)) { const ix = idx[k], v = li[k] && li[k].valeur; if (!ix || !ok(v) || !ix.d.length) continue;
+    if (last(ix.d) === ld) ix.c[ix.c.length - 1] = v; else if (last(ix.d) < ld) { ix.d.push(ld); ix.c.push(v); } } }
 async function getJSON(p) { const r = await fetch(p, { cache: 'no-store' }); if (!r.ok) throw new Error(p + ' : ' + r.status); return r.json(); }
 async function loadCore() {
   const [core, live, status] = await Promise.all([getJSON('data/core.json'), getJSON('data/live.json').catch(() => null), getJSON('data/status.json').catch(() => null)]);
-  S.core = core; S.live = live; S.status = status; S.byT = {}; for (const T of core.tickers) S.byT[T.t] = T;
+  S.core = core; S.live = live; S.status = status; S.byT = {}; for (const T of core.tickers) S.byT[T.t] = T; patchIdx(core.idx);
   // Calendrier de marché : dates du BRVM Composite + séance du jour si plus récente
   const cal = (core.idx.BRVMC && core.idx.BRVMC.d.slice()) || [];
   let maxd = 0; for (const T of core.tickers) if (T.d.length && last(T.d) > maxd) maxd = last(T.d);
@@ -355,7 +366,7 @@ async function loadCore() {
   S.cal = cal; computeAll();
 }
 async function loadEvents() { if (S.events) return S.events; try { S.events = (await getJSON('data/events.json')).events || []; } catch (e) { S.events = []; } computeEventFlags(); return S.events; }
-async function loadIdx() { if (S.idx) return S.idx; S.idx = (await getJSON('data/idx.json')).idx; return S.idx; }
+async function loadIdx() { if (S.idx) return S.idx; S.idx = (await getJSON('data/idx.json')).idx; patchIdx(S.idx); return S.idx; }
 async function loadHist(t) { if (S.hist[t]) return S.hist[t]; const H = await getJSON(`data/h/${t}.json`); S.hist[t] = H; return H; }
 
 /* ============================== Analyse par titre ============================== */
@@ -554,7 +565,7 @@ async function refreshNow(btn) {
     toast(c === 'rate_limited' ? 'Trop de demandes rapprochées : réessaie dans quelques minutes.' : c === 'not_granted' || c === 'consent_required' ? 'Autorisation refusée : la page ne peut pas lancer la mise à jour. Tu peux l’autoriser depuis le menu Autorisations de la page.' : c === 'server_not_connected' || c === 'server_not_found' ? 'Le connecteur Claude Code Remote n’est pas disponible sur ce compte.' : 'La mise à jour n’a pas pu être lancée (' + (c || 'erreur') + '). Les données se mettent quand même à jour toutes les heures.', 9000); } }
 
 /* ============================== Rendu commun ============================== */
-const TABS = [['marche', 'Marché'], ['screener', 'Screener'], ['fiche', 'Fiche'], ['strategie', 'Stratégie'], ['saison', 'Saisonnalité'], ['dividendes', 'Dividendes'],
+const TABS = [['marche', 'Marché'], ['graphique', 'Graphique'], ['screener', 'Screener'], ['fiche', 'Fiche'], ['strategie', 'Stratégie'], ['saison', 'Saisonnalité'], ['dividendes', 'Dividendes'],
   ['indices', 'Indices'], ['classements', 'Classements'], ['avis', 'Avis'], ['fofco', 'FOFCO'], ['fraicheur', 'Fraîcheur']];
 const view = $('#view'); let charts = [];
 function killCharts() { for (const c of charts) { try { c.remove(); } catch (e) {} } charts = []; }
@@ -600,7 +611,7 @@ function go(tab, t) { if (t) S.fiche = t; S.tab = tab; try { history.replaceStat
 document.addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { go(b.dataset.tab); return; }
   const f = e.target.closest('[data-fiche]'); if (f) { go('fiche', f.dataset.fiche); } });
 function render() { if (!S.core) return; killCharts(); renderHeader();
-  const r = { marche: vMarche, screener: vScreener, fiche: vFiche, strategie: vStrategie, saison: vSaison, dividendes: vDividendes, indices: vIndices, classements: vClassements, avis: vAvis, fofco: vFofco, fraicheur: vFraicheur }[S.tab] || vMarche;
+  const r = { marche: vMarche, graphique: vGraphique, screener: vScreener, fiche: vFiche, strategie: vStrategie, saison: vSaison, dividendes: vDividendes, indices: vIndices, classements: vClassements, avis: vAvis, fofco: vFofco, fraicheur: vFraicheur }[S.tab] || vMarche;
   try { const p = r(); if (p && p.catch) p.catch(err => { view.innerHTML = `<div class="empty">Erreur d’affichage : ${esc(err.message)}</div>`; }); } catch (err) { view.innerHTML = `<div class="empty">Erreur d’affichage : ${esc(err.message)}</div>`; console.error(err); } }
 const sorted = (arr, k, dir = -1) => arr.slice().sort((a, b) => { const x = typeof k === 'function' ? k(a) : a[k], y = typeof k === 'function' ? k(b) : b[k]; if (!ok(x) && !ok(y)) return 0; if (!ok(x)) return 1; if (!ok(y)) return -1; return (x - y) * dir; });
 const live = () => Object.values(S.M).filter(x => !x.empty);
@@ -656,6 +667,85 @@ function compositeCycle(ix) { if (!ix) return null; const d = ix.d, c = ix.c; co
   if (state) phases.push({ type: state === 'bull' ? 'Haussier' : 'Baissier', start: d[start], end: last(d), v0: c[start], v1: last(c), current: true });
   let hi = -Infinity; for (const x of c) if (x > hi) hi = x;
   return { phases, fromHigh: (last(c)/hi - 1)*100 }; }
+
+/* ============================== Vue : Graphique quotidien ============================== */
+const hexA = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec((hex || '').trim()); if (!m) return hex; const n = parseInt(m[1], 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+function smaStats(d, c, sma) { const N = c.length, i = N - 1; if (sma[i] == null) return null;
+  const crossAt = k => { if (sma[k] == null || sma[k-1] == null) return 0; const a = c[k-1] - sma[k-1], b = c[k] - sma[k]; return a <= 0 && b > 0 ? 1 : a >= 0 && b < 0 ? -1 : 0; };
+  let lastX = null; for (let k = i; k > 0; k--) { const x = crossAt(k); if (x) { lastX = { k, up: x > 0 }; break; } if (sma[k-1] == null) break; }
+  let above = 0, n = 0, crosses = 0; for (let k = Math.max(1, N - 252); k < N; k++) { if (sma[k] == null) continue; n++; if (c[k] > sma[k]) above++; if (crossAt(k)) crosses++; }
+  const reg = [20, 60, 120].map(hz => { const A = [], B = []; for (let k = 0; k + hz < N; k++) { if (sma[k] == null) continue; (c[k] > sma[k] ? A : B).push((c[k+hz]/c[k] - 1)*100); }
+    const f = a => ({ n: a.length, mean: mean(a), med: median(a), pos: a.length ? a.filter(x => x > 0).length/a.length*100 : null }); return { hz, a: f(A), b: f(B) }; });
+  const first = sma.findIndex(x => x != null);
+  return { sma: sma[i], dist: (c[i]/sma[i] - 1)*100, slope: sma[i-20] ? (sma[i]/sma[i-20] - 1)*100 : null, lastX, lastXDay: lastX ? d[lastX.k] : null, since: lastX ? i - lastX.k : null,
+    aboveShare: n ? above/n*100 : null, crosses, reg, from: first >= 0 ? d[first] : null, crossAt }; }
+async function vGraphique() {
+  const g = S.prefs.g, L = live().slice().sort((a, b) => a.n.localeCompare(b.n, 'fr')), idxKeys = Object.keys(S.core.idx);
+  if (!(g.sym in S.core.idx) && !(S.M[g.sym] && !S.M[g.sym].empty)) g.sym = 'BRVMC';
+  const symOpts = `<optgroup label="Indices">${idxKeys.map(k => `<option value="${k}" ${g.sym === k ? 'selected' : ''}>${esc(S.core.idx[k].n || k)}</option>`).join('')}</optgroup><optgroup label="Actions">${L.map(x => `<option value="${x.t}" ${g.sym === x.t ? 'selected' : ''}>${esc(x.n)} (${x.t})</option>`).join('')}</optgroup>`;
+  view.innerHTML = `<div class="stack fade"><div class="panel" style="padding:12px">
+    <div class="tbar"><select id="g_sym" aria-label="Symbole" style="max-width:100%;font-weight:600">${symOpts}</select><span class="chip">1D · quotidien</span>
+      <div class="seg" id="g_rng">${[[22, '1M'], [63, '3M'], [126, '6M'], [252, '1A'], [756, '3A'], [1260, '5A'], [2520, '10A'], [0, 'Max']].map(([n, l]) => `<button data-r="${n}" class="${g.range === n ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    <div class="tbar" id="g_tog">${[['sma200', 'SMA 200'], ['sma50', 'SMA 50'], ['sma20', 'SMA 20']].map(([k, l]) => `<button class="btn sm ${g.ma.includes(k) ? 'on' : ''}" data-ma="${k}">${l}</button>`).join('')}
+      <button class="btn sm ${g.vol ? 'on' : ''}" data-o="vol">Volume</button><button class="btn sm ${g.cross ? 'on' : ''}" data-o="cross">Croisements SMA 200</button><button class="btn sm ${g.log ? 'on' : ''}" data-o="log">Échelle log</button><button class="btn sm ${g.line ? 'on' : ''}" data-o="line">Ligne</button></div>
+    <div class="chart tall" id="g_ch"><div class="tvlg" id="g_lg">Chargement…</div></div>
+    <p class="note" style="margin-top:6px" id="g_note">Pincez ou utilisez la molette pour zoomer, glissez pour remonter jusqu’en 2006. Double-clic sur l’échelle de prix pour la recadrer.</p></div>
+    <div class="grid g2"><div class="panel" id="g_sma"></div><div class="panel" id="g_reg"></div></div></div>`;
+  $('#g_sym').onchange = e => { g.sym = e.target.value; savePrefs(); killCharts(); vGraphique(); };
+  $('#g_tog').onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.ma) { const k = b.dataset.ma, i = g.ma.indexOf(k); if (i >= 0) g.ma.splice(i, 1); else g.ma.push(k); } else g[b.dataset.o] = !g[b.dataset.o]; savePrefs(); killCharts(); vGraphique(); };
+  const isIdx = g.sym in S.core.idx; let d, o, h, l, c, v, name;
+  try {
+    if (isIdx) { const ix = (await loadIdx())[g.sym]; d = ix.d; c = ix.c; name = ix.n || g.sym;
+      o = c.map((x, i) => i ? c[i-1] : x); h = c.map((x, i) => Math.max(x, o[i])); l = c.map((x, i) => Math.min(x, o[i])); v = null; }
+    else { const H = await loadHist(g.sym), core = S.byT[g.sym]; if (core.d.length && (!H.d.length || last(core.d) > last(H.d))) for (const k of ['d', 'o', 'h', 'l', 'c', 'v', 'val']) H[k].push(last(core[k]));
+      ({ d, o, h, l, c, v } = H); name = S.M[g.sym].n; }
+  } catch (e) { $('#g_lg').textContent = 'Historique indisponible.'; return; }
+  if (S.tab !== 'graphique') return;
+  const N = c.length, up = tok('--up'), dn = tok('--down'), blue = tok('--sma200'), ink = tok('--ink');
+  const sma = { sma200: IND.sma(c, 200), sma50: IND.sma(c, 50), sma20: IND.sma(c, 20) }, smaCol = { sma200: blue, sma50: tok('--accent'), sma20: '#8B5CC4' };
+  const box = $('#g_ch');
+  const ch = mkChart(box, { crosshair: { mode: 0, vertLine: { labelBackgroundColor: ink }, horzLine: { labelBackgroundColor: ink } },
+    timeScale: { borderVisible: false, rightOffset: 6, barSpacing: 7, minBarSpacing: 0.02 },
+    rightPriceScale: { borderVisible: false, mode: g.log ? 1 : 0, scaleMargins: { top: 0.08, bottom: g.vol && v ? 0.22 : 0.06 } },
+    watermark: { visible: true, text: g.sym, fontSize: 44, color: hexA(tok('--muted'), 0.12), fontFamily: 'Bricolage Grotesque, sans-serif' },
+    handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true } });
+  const pf = { type: 'price', precision: isIdx ? 2 : 0, minMove: isIdx ? 0.01 : 1 };
+  let ps;
+  if (g.line) { ps = ch.addAreaSeries({ lineColor: ink, topColor: hexA(ink, 0.12), bottomColor: hexA(ink, 0), lineWidth: 2, priceFormat: pf }); ps.setData(c.map((x, i) => ({ time: ts(d[i]), value: x }))); }
+  else { ps = ch.addCandlestickSeries({ upColor: up, downColor: dn, wickUpColor: up, wickDownColor: dn, borderVisible: false, priceFormat: pf }); ps.setData(c.map((x, i) => ({ time: ts(d[i]), open: o[i], high: h[i], low: l[i], close: x }))); }
+  for (const k of ['sma20', 'sma50', 'sma200']) if (g.ma.includes(k)) { const s = ch.addLineSeries({ color: smaCol[k], lineWidth: k === 'sma200' ? 2 : 1, priceLineVisible: false, lastValueVisible: k === 'sma200', crosshairMarkerVisible: false, priceFormat: pf }); s.setData(lineData(d, sma[k])); }
+  if (g.vol && v) { const vs = ch.addHistogramSeries({ priceScaleId: 'vol', priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false });
+    ch.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } }); vs.setData(v.map((x, i) => ({ time: ts(d[i]), value: x, color: hexA(i && c[i] < c[i-1] ? dn : up, 0.45) }))); }
+  const st = smaStats(d, c, sma.sma200);
+  if (g.cross && st) { const mk = []; for (let k = 1; k < N; k++) { const x = st.crossAt(k); if (x) mk.push({ time: ts(d[k]), position: x > 0 ? 'belowBar' : 'aboveBar', color: x > 0 ? up : dn, shape: x > 0 ? 'arrowUp' : 'arrowDown', size: 0.6 }); } ps.setMarkers(mk); }
+  const span = g.range || N; ch.timeScale().setVisibleLogicalRange({ from: Math.max(0, N - span), to: N + 6 });
+  // Légende façon TradingView
+  const idxOf = new Map(d.map((x, i) => [ts(x), i])), lg = $('#g_lg'), lp = isIdx ? 2 : 0;
+  const legend = i => { const pc = i > 0 ? c[i-1] : c[i], ch1 = (c[i]/pc - 1)*100, col = ch1 >= 0 ? up : dn, s2 = sma.sma200[i];
+    const fx = x => F.n(x, lp);
+    lg.innerHTML = `<b>${esc(name)}</b> · 1D · BRVM <span style="color:var(--muted)">${F.d(d[i])}</span><br>` + (isIdx ? '' : `<span class="o">O <span style="color:${col}">${fx(o[i])}</span></span><span class="o">H <span style="color:${col}">${fx(h[i])}</span></span><span class="o">B <span style="color:${col}">${fx(l[i])}</span></span>`) + `<span class="o">C <span style="color:${col}">${fx(c[i])}</span></span><span style="color:${col}">${F.p(ch1, 2)}</span>`
+      + (g.ma.includes('sma200') && s2 != null ? `<br><span style="color:${blue}">SMA 200 ${fx(s2)}</span> <span style="color:${c[i] >= s2 ? up : dn}">${F.p((c[i]/s2 - 1)*100)}</span>` : '')
+      + (v && g.vol ? `<br>Vol ${F.big(v[i])} titres` : ''); };
+  legend(N - 1);
+  ch.subscribeCrosshairMove(prm => { const i = prm && prm.time != null ? idxOf.get(prm.time) : undefined; legend(i != null ? i : N - 1); });
+  $('#g_rng').onclick = e => { const b = e.target.closest('[data-r]'); if (!b) return; g.range = +b.dataset.r; savePrefs(); $$('#g_rng button').forEach(y => y.classList.toggle('on', y === b)); const sp = g.range || N; ch.timeScale().setVisibleLogicalRange({ from: Math.max(0, N - sp), to: N + 6 }); };
+  if (isIdx) $('#g_note').textContent += ' Les indices ne publient que la clôture : chaque bougie va de la clôture de la veille à celle du jour.';
+  // Lecture SMA 200 et régimes
+  if (!st) { $('#g_sma').innerHTML = `<h3>SMA 200</h3><p class="note">Moins de 200 séances d’historique : la SMA 200 n’est pas encore calculable.</p>`; $('#g_reg').innerHTML = ''; return; }
+  const noisy = st.crosses >= 6;
+  $('#g_sma').innerHTML = `<div class="ph"><h3>SMA 200 · lecture du jour</h3>${chip(st.dist >= 0 ? 'Au-dessus de la SMA 200' : 'Sous la SMA 200', st.dist >= 0 ? 'g' : 'r')}</div>
+    <dl class="kv"><dt>Dernière clôture</dt><dd class="num">${F.n(c[N-1], lp)} · ${F.d(d[N-1])}</dd><dt>SMA 200</dt><dd class="num">${F.n(st.sma, lp)}</dd>
+    <dt>Écart du cours</dt><dd class="num ${cls(st.dist)}">${F.p(st.dist)}</dd><dt>Pente de la SMA 200 (20 séances)</dt><dd class="num ${cls(st.slope)}">${F.p(st.slope, 2)}</dd>
+    <dt>Dernier croisement</dt><dd class="num">${st.lastX ? `${st.lastX.up ? '<span class="up">haussier</span>' : '<span class="down">baissier</span>'} le ${F.d(st.lastXDay)} · il y a ${st.since} séance${st.since > 1 ? 's' : ''}` : 'aucun'}</dd>
+    <dt>Temps au-dessus sur 1 an</dt><dd class="num">${F.pu(st.aboveShare, 0)}</dd><dt>Croisements sur 1 an</dt><dd class="num">${st.crosses} ${noisy ? chip('signal bruité', 'w') : ''}</dd></dl>
+    <div class="row" style="margin-top:12px">${isIdx ? `<button class="btn sm" id="g_bt48">Tester la SMA 200 sur les 48 actions</button>` : `<button class="btn sm" id="g_bt">Tester la règle SMA 200 sur ${esc(g.sym)}</button>`}</div>`;
+  const toBt = all => { S.prefs.bt = Object.assign({}, BT_DEF, S.prefs.bt || {}, { strat: 'sma200' }, all ? {} : { t: g.sym }); S.btAuto48 = !!all; savePrefs(); go('strategie'); };
+  const b1 = $('#g_bt'), b2 = $('#g_bt48'); if (b1) b1.onclick = () => toBt(false); if (b2) b2.onclick = () => toBt(true);
+  $('#g_reg').innerHTML = `<h3>Que s’est-il passé ensuite ?</h3><p class="note">Variation moyenne du cours ${st.reg[0].a.n + st.reg[0].b.n} séances observées depuis le ${F.d(st.from)}, selon que la clôture était au-dessus ou en dessous de la SMA 200.</p>
+    <div class="tw" style="border:0"><table><thead><tr><th>Horizon</th><th class="n">Au-dessus</th><th class="n">% positifs</th><th class="n">En dessous</th><th class="n">% positifs</th></tr></thead><tbody>
+    ${st.reg.map(r => `<tr><td>${r.hz} séances</td><td class="n num ${cls(r.a.mean)}">${F.p(r.a.mean)}</td><td class="n num">${F.pu(r.a.pos, 0)}</td><td class="n num ${cls(r.b.mean)}">${F.p(r.b.mean)}</td><td class="n num">${F.pu(r.b.pos, 0)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="note">Fenêtres qui se chevauchent : un ordre de grandeur, pas une preuve statistique. Cours bruts, hors dividendes et frais. Pour l’effet réel après frais, utilise le test de stratégie.</p>`;
+}
 
 /* ============================== Vue : Screener ============================== */
 const COLS = [
@@ -739,7 +829,7 @@ function drawTable() {
 }
 
 /* ============================== Vue : Fiche ============================== */
-const OVERLAYS = [['ma20', 'MM20'], ['ma50', 'MM50'], ['ma100', 'MM100'], ['boll', 'Bollinger'], ['st', 'Supertrend'], ['ichi', 'Ichimoku'], ['don', 'Donchian 252']];
+const OVERLAYS = [['ma20', 'MM20'], ['ma50', 'MM50'], ['ma100', 'MM100'], ['ma200', 'SMA 200'], ['boll', 'Bollinger'], ['st', 'Supertrend'], ['ichi', 'Ichimoku'], ['don', 'Donchian 252']];
 const PANES = [['vol', 'Volume'], ['rsi', 'RSI'], ['macd', 'MACD'], ['stoch', 'Stochastique'], ['adx', 'ADX / DI'], ['obv', 'OBV'], ['z', 'Z-score']];
 async function vFiche() {
   const t = S.fiche in S.M ? S.fiche : 'SNTS', x = S.M[t], T = S.byT[t];
@@ -816,7 +906,7 @@ function seasonTable(se) { return `<table><thead><tr><th>Mois</th><th class="n">
 
 function drawFiche(t, x, H) {
   const { d, o, h, l, c, v } = H, N = c.length, cp = S.prefs.chart;
-  const ma20 = IND.sma(c, 20), ma50 = IND.sma(c, 50), ma100 = IND.sma(c, 100), bb = IND.boll(c), st = IND.supertrend(h, l, c), ich = IND.ichimoku(h, l, c);
+  const ma20 = IND.sma(c, 20), ma50 = IND.sma(c, 50), ma100 = IND.sma(c, 100), ma200 = IND.sma(c, 200), bb = IND.boll(c), st = IND.supertrend(h, l, c), ich = IND.ichimoku(h, l, c);
   const dh = IND.rollMax(h, 252), dl = IND.rollMin(l, 252), r = IND.rsi(c), mc = IND.macd(c), sto = IND.stoch(h, l, c), ad = IND.adx(h, l, c), ob = IND.obv(c, v), z = IND.zscore(c);
   const up = tok('--up'), dn = tok('--down'), acc = tok('--accent'), ink = tok('--ink'), mut = tok('--muted'), warn = tok('--warn');
   const main = $('#ch_main'); main.innerHTML = ''; const ch = mkChart(main);
@@ -828,6 +918,7 @@ function drawFiche(t, x, H) {
   if (cp.ov.includes('ma20')) { add(ma20, acc); lg.push([acc, 'MM20']); }
   if (cp.ov.includes('ma50')) { add(ma50, '#3B82C4'); lg.push(['#3B82C4', 'MM50']); }
   if (cp.ov.includes('ma100')) { add(ma100, '#8B5CC4'); lg.push(['#8B5CC4', 'MM100']); }
+  if (cp.ov.includes('ma200')) { add(ma200, tok('--sma200'), 2); lg.push([tok('--sma200'), 'SMA 200']); }
   if (cp.ov.includes('boll')) { add(bb.up, mut, 1, 2); add(bb.dn, mut, 1, 2); lg.push([mut, 'Bollinger 20, ±2σ']); }
   if (cp.ov.includes('st')) { add(st.st.map((x, i) => st.dir[i] === 1 ? x : null), up, 2); add(st.st.map((x, i) => st.dir[i] === -1 ? x : null), dn, 2); lg.push([up, 'Supertrend 10, 3']); }
   if (cp.ov.includes('ichi')) { add(ich.ten, '#C4573B'); add(ich.kij, '#3B82C4'); add(ich.sa, up, 1, 2); add(ich.sb, dn, 1, 2); lg.push(['#C4573B', 'Tenkan'], ['#3B82C4', 'Kijun'], [up, 'Nuage']); }
@@ -863,6 +954,7 @@ function drawFiche(t, x, H) {
   const rangeTight = atr[i] && (hi20 - lo20) < 4*atr[i];
   const rows = [
     ['MM20 / 50 / 100', `${F.px(ma20[i])} · ${F.px(ma50[i])} · ${F.px(ma100[i])}`, [c[i] > ma20[i], c[i] > ma50[i], c[i] > ma100[i]].filter(Boolean).length + ' sur 3 sous le cours'],
+    ['SMA 200', F.px(ma200[i]), ma200[i] == null ? 'Historique trop court' : `Cours ${c[i] > ma200[i] ? 'au-dessus' : 'en dessous'} de ${F.pu(Math.abs(c[i]/ma200[i] - 1)*100)} · pente 20 séances ${F.p(ma200[i-20] ? (ma200[i]/ma200[i-20] - 1)*100 : null)}`],
     ['RSI 14', F.n(r[i]), r[i] >= 70 ? 'Très tendu à la hausse' : r[i] <= 30 ? 'Très tendu à la baisse' : r[i] > 55 ? 'Élan acheteur' : r[i] < 45 ? 'Élan vendeur' : 'Neutre'],
     ['MACD 12/26/9', F.n(mc.h[i], 2), mc.h[i] > 0 ? (mc.h[i] > mc.h[i-1] ? 'Positif et en hausse' : 'Positif, s’essouffle') : (mc.h[i] > mc.h[i-1] ? 'Négatif, se redresse' : 'Négatif et en baisse')],
     ['Stochastique 14, 3', `${F.n(sto.k[i])} / ${F.n(sto.d[i])}`, sto.k[i] > 80 ? 'Zone haute' : sto.k[i] < 20 ? 'Zone basse' : sto.k[i] > sto.d[i] ? '%K au-dessus de %D' : '%K sous %D'],
@@ -890,7 +982,7 @@ function drawFiche(t, x, H) {
 }
 
 /* ============================== Vue : Stratégie (simulation historique) ============================== */
-const BT_DEF = { t: 'SNTS', years: 3, mode: 'lump', cap: 1000000, monthly: 100000, strat: 'ma', court: 1.0, tva: 18, brvm: 0.2, dcbr: 0.1, minc: 0, garde: 0, cash: 4.5, slip: true, divs: true, reentry: false };
+const BT_DEF = { t: 'SNTS', years: 5, mode: 'lump', cap: 1000000, monthly: 100000, strat: 'sma200', buf: 0, conf: 1, court: 1.0, tva: 18, brvm: 0.2, dcbr: 0.1, minc: 0, garde: 0, cash: 4.5, slip: true, divs: true, reentry: false };
 function vStrategie() {
   const p = Object.assign({}, BT_DEF, S.prefs.bt || {}, { t: S.prefs.bt && S.prefs.bt.t || S.fiche || 'SNTS' });
   const opts = live().slice().sort((a, b) => a.n.localeCompare(b.n, 'fr')).map(y => `<option value="${y.t}" ${y.t === p.t ? 'selected' : ''}>${esc(y.n)} (${y.t})</option>`).join('');
@@ -898,7 +990,9 @@ function vStrategie() {
     <div class="panel"><div class="filters" id="btf">
       <label class="f">Titre<select id="b_t">${opts}</select></label>
       <label class="f">Période<select id="b_years">${[[1, '1 an'], [3, '3 ans'], [5, '5 ans'], [10, '10 ans'], [0, 'Depuis la cotation']].map(([v, l]) => `<option value="${v}" ${+p.years === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-      <label class="f">Stratégie<select id="b_strat"><option value="ma" ${p.strat === 'ma' ? 'selected' : ''}>Tendance MM80 / MM150</option><option value="bh" ${p.strat === 'bh' ? 'selected' : ''}>Achat-conservation</option></select></label>
+      <label class="f">Stratégie<select id="b_strat"><option value="sma200" ${p.strat === 'sma200' ? 'selected' : ''}>Cours au-dessus de la SMA 200</option><option value="ma" ${p.strat === 'ma' ? 'selected' : ''}>Tendance MM80 / MM150</option><option value="bh" ${p.strat === 'bh' ? 'selected' : ''}>Achat-conservation</option></select></label>
+      <label class="f">Marge SMA 200 (%)<input id="b_buf" type="number" step="0.5" min="0" value="${p.buf}"></label>
+      <label class="f">Confirmation (séances)<input id="b_conf" type="number" step="1" min="1" max="20" value="${p.conf}"></label>
       <label class="f">Apport<select id="b_mode"><option value="lump" ${p.mode === 'lump' ? 'selected' : ''}>Achat unique</option><option value="dca" ${p.mode === 'dca' ? 'selected' : ''}>Versements mensuels</option></select></label>
       <label class="f">Capital initial (FCFA)<input id="b_cap" type="number" step="50000" value="${p.cap}"></label>
       <label class="f">Versement mensuel (FCFA)<input id="b_monthly" type="number" step="10000" value="${p.monthly}"></label>
@@ -915,18 +1009,43 @@ function vStrategie() {
       <label class="c"><input id="b_divs" type="checkbox" ${p.divs ? 'checked' : ''}> Encaisser les dividendes nets</label>
       <label class="c"><input id="b_reentry" type="checkbox" ${p.reentry ? 'checked' : ''}> Ré-entrer si le cours repasse la MM80</label>
     </div><p class="note">Par défaut : courtage 1 % HT + TVA 18 %, BRVM 0,20 %, DC/BR 0,10 %, soit environ 2,96 % aller-retour, plafonds AMF-UMOA. Ta SGI peut facturer moins : ajuste ici. L’impôt personnel (IRVM sur plus-values, etc.) n’est pas simulé.</p></details></div>
-    <div id="btRes"><div class="empty">Calcul…</div></div></div>`;
+    <div id="btRes"><div class="empty">Calcul…</div></div>
+    <div class="panel"><div class="ph"><div><h2>La règle sur toute la BRVM</h2><p class="note">Applique la stratégie choisie, avec les mêmes frais et la même période, à chaque action ayant assez d’historique, et la compare à l’achat-conservation. Le Composite est ajouté en référence théorique (non investissable, sans frais).</p></div><button class="btn" id="bt48">Lancer sur les 48 actions</button></div><div id="bt48Res"></div></div></div>`;
   const keys = Object.keys(BT_DEF);
   const run = async () => { const q = {}; for (const k of keys) { const el = $('#b_' + k); q[k] = el.type === 'checkbox' ? el.checked : el.tagName === 'SELECT' && k !== 't' && k !== 'strat' && k !== 'mode' ? +el.value : el.type === 'number' ? +el.value : el.value; }
     S.prefs.bt = q; savePrefs(); await drawBacktest(q); };
   $('#btf').parentElement.addEventListener('change', run); run();
+  $('#bt48').onclick = () => runAll(S.prefs.bt);
+  if (S.btAuto48) { S.btAuto48 = false; setTimeout(() => runAll(S.prefs.bt), 50); }
+}
+async function runAll(p) {
+  const out = $('#bt48Res'), btn = $('#bt48'); if (!out) return; btn.disabled = true; const res = [];
+  const L = live().filter(x => x.nsess >= 260 && !x.susp);
+  for (let j = 0; j < L.length; j++) { const x = L[j]; out.innerHTML = `<p class="note">Calcul ${j + 1} / ${L.length} : ${esc(x.n)}…</p>`;
+    let H; try { H = await loadHist(x.t); } catch (e) { continue; } if (S.tab !== 'strategie') return;
+    const A = simulate(H, x, { ...p, mode: 'lump' }, p.strat === 'bh' ? 'sma200' : p.strat), B = simulate(H, x, { ...p, mode: 'lump' }, 'bh');
+    if (!A || !B || A.i0 < 200 || A.years < 0.9) continue; res.push({ x, A, B }); }
+  let comp = null; try { const ix = (await loadIdx()).BRVMC; const H = { d: ix.d, o: ix.c.slice(), h: ix.c, l: ix.c, c: ix.c, v: ix.c.map(() => 0) };
+    const q = { ...p, mode: 'lump', court: 0, tva: 0, brvm: 0, dcbr: 0, minc: 0, garde: 0, slip: false, divs: false }, px = { liq: 100, div: { all: [] } };
+    const A = simulate(H, px, q, p.strat === 'bh' ? 'sma200' : p.strat), B = simulate(H, px, q, 'bh'); if (A && B) comp = { A, B }; } catch (e) {}
+  btn.disabled = false; if (!res.length) { out.innerHTML = '<p class="note">Aucun titre n’a assez d’historique sur cette période.</p>'; return; }
+  res.sort((a, b) => (b.A.cagr - b.B.cagr) - (a.A.cagr - a.B.cagr));
+  const wins = res.filter(r => r.A.cagr > r.B.cagr).length, gap = median(res.map(r => r.A.cagr - r.B.cagr)), ddA = median(res.map(r => r.A.mdd)), ddB = median(res.map(r => r.B.mdd));
+  const lab = p.strat === 'ma' ? 'MM80 / MM150' : `SMA 200${p.buf ? ' ±' + F.n(p.buf, 1) + ' %' : ''}${p.conf > 1 ? ', ' + p.conf + ' séances' : ''}`;
+  const row = (n, A, B, t) => `<tr${t ? ` class="click" data-fiche="${t}"` : ''}><td class="stick">${n}</td><td class="n num ${cls(A.cagr)}">${F.p(A.cagr)}</td><td class="n num ${cls(B.cagr)}">${F.p(B.cagr)}</td><td class="n num ${cls(A.cagr - B.cagr)}"><b>${F.p(A.cagr - B.cagr)}</b></td><td class="n num down">${F.p(A.mdd)}</td><td class="n num down">${F.p(B.mdd)}</td><td class="n num">${A.trades.length}</td><td class="n num">${F.pu(A.expo, 0)}</td></tr>`;
+  out.innerHTML = `<div class="row" style="gap:8px;margin-bottom:10px">${chip(`${lab} bat l’achat-conservation sur ${wins} / ${res.length} titres`, wins > res.length/2 ? 'g' : 'r')}${chip(`Écart médian ${F.p(gap)} par an`, gap > 0 ? 'g' : 'r')}${chip(`Pire baisse médiane ${F.p(ddA)} contre ${F.p(ddB)}`, ddA > ddB ? 'g' : 'w')}</div>
+    <div class="tw" style="border:0"><table><thead><tr><th class="stick">Titre</th><th class="n">${esc(lab)} /an</th><th class="n">Achat-conserv. /an</th><th class="n">Écart</th><th class="n">Pire baisse règle</th><th class="n">Pire baisse A-C</th><th class="n">Opérations</th><th class="n">Temps investi</th></tr></thead><tbody>
+    ${comp ? row('<b>BRVM Composite</b> <span class="muted">(théorique)</span>', comp.A, comp.B) : ''}${res.map(r => row(tkCell(r.x), r.A, r.B, r.x.t)).join('')}</tbody></table></div>
+    <p class="note">Période : ${p.years ? p.years + ' an' + (p.years > 1 ? 's' : '') : 'depuis la cotation'} · apport unique · frais, glissement et dividendes comme réglés plus haut. Titres retenus : au moins 200 séances avant le début de la période. Un écart positif sur une seule période ne prouve pas que la règle marchera demain.</p>`;
 }
 function feeCalc(notional, p) { const court = Math.max(notional*p.court/100, p.minc) * (1 + p.tva/100); return court + notional*(p.brvm + p.dcbr)/100; }
 function simulate(H, x, p, strat) {
   const N = H.c.length, start = p.years ? TODAY - Math.round(p.years*365.25) : H.d[0];
   let i0 = H.d.findIndex(y => y >= start); if (strat === 'ma') i0 = Math.max(i0, 0);
   if (i0 < 0 || N - i0 < 30) return null;
-  const ma80 = IND.sma(H.c, 80), ma150 = IND.sma(H.c, 150);
+  const ma80 = IND.sma(H.c, 80), ma150 = IND.sma(H.c, 150), sma200 = strat === 'sma200' ? IND.sma(H.c, 200) : null;
+  const buf = (p.buf || 0)/100, conf = Math.max(1, Math.round(p.conf || 1));
+  const holds = (i, f) => { for (let k = i - conf + 1; k <= i; k++) if (k < 0 || sma200[k] == null || !f(k)) return false; return true; };
   const slip = p.slip ? lin(x.liq, 0, 2.0, 100, 0.1)/100 : 0;
   const divAt = {}; if (p.divs) for (const dv of x.div.all) { const dd = isoDay(dv.det); if (dd == null || !ok(dv.net)) continue; const j = H.d.findIndex(y => y >= dd); if (j > i0) divAt[j] = (divAt[j] || 0) + dv.net; }
   let cash = 0, sh = 0, fees = 0, divs = 0, units = 0, nav = 100, want = strat === 'bh' ? 'long' : 'flat', exited = false, inPos = 0, lastYM = null, inv = 0;
@@ -946,6 +1065,8 @@ function simulate(H, x, p, strat) {
     if (sh > 0) inPos++;
     const value = cash + sh*H.c[i]; eq.push(value); nav = value/units; navs.push(nav); invS.push(inv);
     // signal à la clôture pour la séance suivante
+    if (strat === 'sma200') { if (sh === 0 && want !== 'long' && holds(i, k => H.c[k] > sma200[k]*(1 + buf))) want = 'long';
+      else if (sh > 0 && holds(i, k => H.c[k] < sma200[k]*(1 - buf))) want = 'flat'; }
     if (strat === 'ma' && ma150[i] != null && ma150[i-1] != null) {
       if (sh === 0 && want !== 'long') { const cross = ma80[i] > ma150[i] && ma80[i-1] <= ma150[i-1]; const re = p.reentry && exited && ma80[i] > ma150[i] && H.c[i] > ma80[i] && H.c[i-1] <= ma80[i-1];
         if (cross || re) want = 'long'; }
@@ -969,10 +1090,10 @@ async function drawBacktest(p) {
   let H; try { H = await loadHist(p.t); } catch (e) { res.innerHTML = `<div class="empty">Historique indisponible.</div>`; return; }
   const A = simulate(H, x, p, p.strat), B = simulate(H, x, p, 'bh');
   if (!A || !B) { res.innerHTML = '<div class="empty">Historique trop court sur cette période.</div>'; return; }
-  const inconclusive = A.years < 1 || (p.strat === 'ma' && A.trades.length < 3) || x.dq < 60;
+  const inconclusive = A.years < 1 || (p.strat !== 'bh' && A.trades.length < 3) || x.dq < 60 || (p.strat === 'sma200' && A.i0 < 200);
   const kpi = (lab, a, b, f, good = 1) => `<tr><td>${lab}</td><td class="n num ${good && ok(a) && ok(b) ? (a*good > b*good ? 'up' : a*good < b*good ? 'down' : '') : ''}">${f(a)}</td><td class="n num">${f(b)}</td></tr>`;
   res.innerHTML = `<div class="stack"><div class="panel"><div class="ph"><h2>${esc(x.n)} · ${F.d(A.days[0])} → ${F.d(last(A.days))}</h2>${inconclusive ? chip('Résultat non concluant : période, nombre d’opérations ou données insuffisants', 'w wrap') : ''}</div>
-    <div class="tw" style="border:0"><table><thead><tr><th></th><th class="n">${p.strat === 'ma' ? 'MM80 / MM150' : 'Achat-conservation'}</th><th class="n">Achat-conservation</th></tr></thead><tbody>
+    <div class="tw" style="border:0"><table><thead><tr><th></th><th class="n">${p.strat === 'ma' ? 'MM80 / MM150' : p.strat === 'sma200' ? 'SMA 200' : 'Achat-conservation'}</th><th class="n">Achat-conservation</th></tr></thead><tbody>
     ${kpi('Valeur finale nette (FCFA)', A.final, B.final, v => F.n(v))}${kpi('Montant investi', A.inv, B.inv, v => F.n(v), 0)}${kpi('Gain net', A.gain, B.gain, v => F.n(v))}
     ${kpi('Performance (pondérée dans le temps)', A.twr, B.twr, v => F.p(v))}${kpi('Par an', A.cagr, B.cagr, v => F.p(v))}${kpi('TRI (versements)', A.irr, B.irr, v => F.p(v))}
     ${kpi('Pire baisse', A.mdd, B.mdd, v => F.p(v))}${kpi('Volatilité annuelle', A.vol, B.vol, v => F.pu(v), -1)}
@@ -1171,11 +1292,11 @@ function vFraicheur() {
     <div class="tw"><table><tbody>${rows.map(r => `<tr><td><b>${r[0]}</b></td><td style="white-space:normal">${r[1]}</td><td class="num">${r[2]}</td><td>${r[3]}</td></tr>`).join('')}</tbody></table></div>
     ${susp.length ? `<div class="panel"><h3>Cotations suspendues</h3>${susp.map(([t, v]) => `<div>${chip(t, 'r')} depuis le ${F.iso(v.date)} · avis ${esc(v.avis || '')}</div>`).join('')}</div>` : ''}
     <div class="panel"><h2>Méthode</h2><div class="note" style="max-width:none;display:grid;gap:8px;font-size:13px;color:var(--ink)">
-      <p><b>Mise à jour.</b> Une GitHub Action du dépôt fofco-brvm-terminal relève brvm.org (cours officiels) et SikaFinance (plus haut, plus bas, valeur) toutes les 15 minutes pendant la séance, fusionne le miroir public des historiques, puis reconstruit les fichiers sur la branche data. Cette page privée les recopie toutes les heures en séance (et à 19 h 40 GMT), ou tout de suite avec le bouton Actualiser. Les cours BRVM sont eux-mêmes différés de 15 minutes. Les CSV du miroir sont lus dans leur ordre réel (clôture, ouverture, plus haut, plus bas).</p>
+      <p><b>Mise à jour.</b> Une GitHub Action du dépôt fofco-brvm-terminal relève brvm.org (cours officiels) et SikaFinance (plus haut, plus bas, valeur) toutes les 15 minutes pendant la séance, fusionne le miroir public des historiques, puis reconstruit les fichiers sur la branche data. ${window.claude ? 'Cette page privée claude.ai les recopie toutes les heures en séance (et à 19 h 40 GMT), ou tout de suite avec le bouton Actualiser.' : 'Cette page est redéployée automatiquement à chaque relevé et recharge ses données toute seule quand elle est ouverte.'} Les cours BRVM sont eux-mêmes différés de 15 minutes. Les CSV du miroir sont lus dans leur ordre réel (clôture, ouverture, plus haut, plus bas).</p>
       <p><b>Indicateurs.</b> MM 20/50/100, RSI 14 (Wilder), MACD 12/26/9, stochastique 14 lissé 3, Bollinger 20 ±2σ, Z-score 252 (minimum 20, très étiré au-delà de 2,2), Supertrend ATR 10 × 3, ADX/DI 14, OBV, Donchian 252, cassures ATR 14 sur 20 séances, Ichimoku 9/26/52, profil de volume 36 niveaux (zone de valeur 70 %), doubles sommets/creux (pivots 3 %, tolérance 2 %, 5–60 séances).</p>
       <p><b>Phases.</b> Distance au plus haut 20 séances (seuil 3,2 %), histogramme MACD, RSI (60) et MM50. Une phase s’affiche à sa deuxième séance consécutive. Tension : RSI ≥ 70 ou ≤ 30, cours > MM20 + 10 %, ou hausse > 20 % en 20 séances.</p>
       <p><b>Scores.</b> Pondérations et seuils publiés par BRVMetrics (méthode v1.20) ; les sous-composantes sont calculées ici. Qualité : tendance 30, timing 25, prix payé 20, risque 15, dividende 10 ; garde-fous RSI > 70, Z > 2,2, +25 % en 20 séances, liquidité < 35. Contexte : marché 45, comptes 30, liquidité 25. Note des comptes : 5 critères à 20 %, pairs du secteur ou banques / non-banques. Liquidité : valeur moyenne 50 % (points log : 100 k → 0, 500 k → 30, 2 M → 50, 10 M → 75, 50 M → 100), fréquence 30 %, écart haut-bas 20 %. Aucun de ces scores ne prédit le rendement futur : les tests publiés ne trouvent aucun indicateur isolé rentable après frais.</p>
-      <p><b>Stratégie.</b> Règle MM80 / MM150 (entrée au croisement, sortie 5 % sous la MM80), achat-conservation en référence, frais par défaut ≈ 2,96 % aller-retour, trésorerie à 4,5 %, dividendes nets au détachement.</p>
+      <p><b>Stratégie.</b> Règle SMA 200 (investi quand la clôture est au-dessus de la moyenne des 200 dernières séances, avec marge et confirmation réglables), règle MM80 / MM150 (entrée au croisement, sortie 5 % sous la MM80), achat-conservation en référence, frais par défaut ≈ 2,96 % aller-retour, trésorerie à 4,5 %, dividendes nets au détachement.</p>
       <p><b>Sources.</b> Les données restent la propriété de la BRVM, de SikaFinance et de RicheBourse, via le miroir public de BRVMetrics. Usage personnel, sans garantie d’exactitude. Ce n’est pas un conseil en investissement.</p></div></div></div>`;
 }
 
@@ -1188,7 +1309,7 @@ async function boot() {
   initPrefSync();
   // Vérifie toutes les 5 minutes si de nouvelles données ont été publiées
   setInterval(async () => { try { const st = await getJSON('data/status.json'); if (st.generated_at && S.status && st.generated_at !== S.status.generated_at) { const keep = S.events; await loadCore(); S.events = keep; S.hist = {}; computeEventFlags(); if (!['strategie', 'fiche'].includes(S.tab)) render(); else renderHeader(); } } catch (e) {} }, 5*60*1000);
-  const rerender = () => { if (['fiche', 'strategie', 'indices', 'fofco', 'saison'].includes(S.tab)) render(); };
+  const rerender = () => { if (['graphique', 'fiche', 'strategie', 'indices', 'fofco', 'saison'].includes(S.tab)) render(); };
   try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', rerender); } catch (e) {}
   new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
