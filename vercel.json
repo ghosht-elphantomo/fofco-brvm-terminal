@@ -1,8 +1,6 @@
 {
-  "git": { "deploymentEnabled": { "main": false } },
   "github": { "silent": true },
-  "headers": [
-    { "source": "/data/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store" }] },
-    { "source": "/(.*)", "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }] }
+  "redirects": [
+    { "source": "/:path*", "destination": "https://fofco-brvm-terminal-git-data-screener3.vercel.app/:path*", "permanent": false }
   ]
 }

@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [main]
-    paths: ["index.html", "vercel.json", "pipeline/**", "history/**", ".github/workflows/update.yml"]
+    paths: ["index.html", "vercel.data.json", "pipeline/**", "history/**", ".github/workflows/update.yml"]
 
 permissions:
   contents: write
@@ -58,7 +58,7 @@ jobs:
         run: |
           python pipeline/wrap_page.py index.html /tmp/out/index.html
           cp index.html /tmp/out/page.html
-          cp vercel.json /tmp/out/
+          cp vercel.data.json /tmp/out/vercel.json
           cd /tmp/out
           git init -q -b data
           git config user.name "fofco-bot"
