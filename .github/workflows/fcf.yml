@@ -27,7 +27,7 @@ jobs:
           python-version: "3.12"
 
       - name: Installer pdftotext
-        run: sudo apt-get install -y -qq poppler-utils >/dev/null
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils >/dev/null
 
       - name: Récupérer le miroir public (liste des états financiers)
         run: git clone --depth 1 https://github.com/harzat/brvm-data-public.git /tmp/src
